@@ -149,6 +149,16 @@ nav.tabs svg{width:24px;height:24px}
 .goalbox{display:flex;flex-direction:column;gap:8px;background:var(--sunk);border-radius:12px;padding:12px}
 .goalbox label{font-weight:500;font-size:.92rem}
 .upd{border-color:var(--accent);background:var(--accent-soft)}
+/* coach */
+.coach{gap:10px}
+.coach-head{display:flex;gap:12px;align-items:center}
+.coach-av{flex:none;width:48px;height:48px}
+.bubble{background:var(--sunk);border-radius:4px 14px 14px 14px;padding:12px 14px;font-size:.95rem}
+.bubble.me{background:var(--accent-soft);color:var(--ink);border-radius:14px 4px 14px 14px;align-self:flex-end;max-width:85%}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 12px;font-size:.85rem;font-weight:600}
+.days7{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.days7 .opt span{padding:10px 0;text-align:center}
 /* démos & musique */
 .demo{width:100%;max-width:220px;height:auto;display:block;margin:0 auto;background:var(--sunk);border-radius:12px}
 .demo.sm{max-width:180px}
@@ -313,7 +323,7 @@ function dose(id,p,goal){
   return e.m==="time"?Math.max(10,Math.round(v/5)*5):Math.max(3,Math.round(v));
 }
 function stepSec(st){return st.m==="time"?st.v:st.v*(st.s?2:1)*3}
-function buildSession(){
+function buildSession(minOverride){
   const pr=S.profile,goal=pr.goal,lim=pr.lim||[],p=goal==="douceur"?Math.min(10,Math.floor(S.palier)):Math.floor(S.palier),idx=S.sessions.length,type=["A","B","C"][idx%3];
   let plan=PLAN[type].slice();
   if(goal==="poids"&&type!=="A")plan.push("jacks");
@@ -333,7 +343,7 @@ function buildSession(){
     const fin=adapt("genoux",lim,goal,p);if(goal==="poids")st.push({k:"work",id:fin,n:"Finisher : "+EX[fin].n.toLowerCase(),c:EX[fin].c,m:"time",v:p>=8?45:30,r:R,R});
     st.push(...cool);return st;
   };
-  let R=1;for(let k=2;k<=6;k++){if(make(k).reduce((a,s)=>a+stepSec(s),0)<=pr.minutes*60+60)R=k;}
+  const target=minOverride||pr.minutes;let R=1;for(let k=2;k<=6;k++){if(make(k).reduce((a,s)=>a+stepSec(s),0)<=target*60+60)R=k;}
   const steps=make(R),est=Math.round(steps.reduce((a,s)=>a+stepSec(s),0)/60);
   return {type,name:TYPES[type],exs,rounds:R,rest,steps,est,num:idx+1};
 }
@@ -456,7 +466,7 @@ function today(){
   </section>
   <section class="card"><div class="streak"><span class="n num">${st.cur}</span><div><h3>semaine${st.cur>1?"s":""} d'affilée</h3><p class="muted">Une semaine compte quand tu atteins ${pr.days} séances. Record : ${st.best}.</p></div></div></section>
   ${musicCard(false)}
-  <section class="card"><p class="eyebrow">Le mot du jour</p><p class="quote">${q}</p></section>
+  ${coachCard(q)}
   <section class="card"><div class="row between"><h2>Au programme</h2><span class="muted">${se.rounds} × ce circuit</span></div>
     <div class="list">${se.exs.map(e=>`<details class="ex"><summary><div><b>${e.n}</b><p class="how">Voir comment faire</p></div><span class="dose num">${doseLabel(e)}</span></summary><div class="demo-box">${figSvg(e.id,"demo sm")}<p class="muted" style="font-size:.88rem">${e.c}</p><a href="${videoUrl(e.id)}" target="_blank" rel="noopener">Voir des vidéos de l'exercice</a></div></details>`).join("")}</div>
     <p class="muted" style="font-size:.85rem">Adapté à ton objectif : ${GOALS[pr.goal]?GOALS[pr.goal].prog:""} Échauffement et étirements guidés inclus, ${se.rest} s de récupération entre les exercices.</p>
@@ -537,8 +547,8 @@ function profile(){
   <section class="card"><h2>Difficulté</h2><p class="muted">Le palier monte tout seul selon tes retours après chaque séance. Tu peux aussi l'ajuster ici.</p>
     <div class="stepper"><button class="btn" data-act="pal-">−</button><b class="num">${Math.floor(S.palier)}</b><button class="btn" data-act="pal+">+</button><span class="muted">sur 20</span></div></section>
   ${musicCard(true)}
-  <section class="card"><h2>Rappels</h2><p class="muted">${IS_APP?"L'appli ne peut pas encore":"Cette page ne peut pas"} t'envoyer de notifications. Le plus fiable : crée une alarme récurrente dans l'app Horloge de ton téléphone, les jours où tu veux t'entraîner, nommée « Déclic ».</p>
-  ${IS_APP?`<p class="muted num">Version de l'appli : ${esc(window.ElanAndroid.versionName())}</p>`:`<p class="muted">Astuce : ajoute cette page à ton écran d'accueil (menu Partager puis « Sur l'écran d'accueil » sur iPhone, menu ⋮ puis « Ajouter à l'écran d'accueil » sur Android).</p>`}</section>
+  ${reminderCard()}
+  <section class="card"><h2>${IS_APP?"Appli":"Sur ton téléphone"}</h2>${IS_APP?`<p class="muted num">Version de l'appli : ${esc(window.ElanAndroid.versionName())}</p>`:`<p class="muted">Astuce : ajoute cette page à ton écran d'accueil (menu Partager puis « Sur l'écran d'accueil » sur iPhone, menu ⋮ puis « Ajouter à l'écran d'accueil » sur Android).</p>`}</section>
   <section class="card"><h2>Données</h2><p class="muted" id="sync">${syncLabel()}</p>
     <div id="resetBox"><button class="btn ghost small" data-act="reset">Tout effacer et recommencer</button></div></section>`;
 }
@@ -587,11 +597,11 @@ function beep(f=880,d=.12,v=.25){try{if(!actx)return;const o=actx.createOscillat
 function buzz(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
 async function wake(){try{lock=await navigator.wakeLock?.request("screen")}catch(e){lock=null}}
 document.addEventListener("visibilitychange",()=>{if(W&&!document.hidden)wake()});
-function startWorkout(){
+function startWorkout(minOverride){
   try{window.ElanAndroid&&window.ElanAndroid.keepAwake(true)}catch(e){}
   if(TRACKS.length&&!playing())musicPlay(S.music&&S.music.shuffle?Math.floor(Math.random()*TRACKS.length):ti);
   try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();actx.resume&&actx.resume()}catch(e){}
-  const se=buildSession();
+  const se=buildSession(minOverride);
   W={se,i:0,t0:Date.now(),stepStart:Date.now(),paused:false,pausedAt:0,last:-1,phase:"run"};
   wake();$("#player").hidden=false;document.body.style.overflow="hidden";
   drawStep();W.timer=setInterval(tick,200);
@@ -653,6 +663,7 @@ function rate(r){
   S.palier=Math.max(1,Math.min(20,S.palier+(r==="facile"?1:r==="dur"?-1:.34)));
   const xp=Math.round((W.full?60:20)+W.elapsed*6);
   S.sessions.push({d:new Date().toISOString(),t:W.se.type,min:W.elapsed,r,xp,p:palB,full:W.full});
+  try{window.ElanAndroid&&window.ElanAndroid.markTrained(dkey(new Date()))}catch(e){}
   save();
   const after=stats(),lvA=level(after.xp),palA=Math.floor(S.palier);
   const newB=BADGES.filter(([,,f])=>f(after)&&!f(before));
@@ -934,5 +945,88 @@ window.elanBack=function(){
   if(S&&S.profile&&tab!=="today"){tab="today";render();window.scrollTo(0,0);return true}
   return false;
 };
+/* ---------- Coach ---------- */
+let coachTalk=[];
+const COACH_AV='<svg class="coach-av" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="var(--accent)"/><path d="M27 9 L15 27 L22 27 L19 39 L33 21 L26 21 Z" fill="var(--on-accent)"/></svg>';
+function coachLine(q){
+  const pr=S.profile,st=stats(),now=new Date(),nm=pr.name?`${pr.name}, `:"";
+  const last=S.sessions.length?new Date(S.sessions[S.sessions.length-1].d):null;
+  const gap=last?Math.round((new Date(now.getFullYear(),now.getMonth(),now.getDate())-new Date(last.getFullYear(),last.getMonth(),last.getDate()))/864e5):null;
+  const left=Math.max(0,pr.days-st.thisWeek),daysLeft=7-((now.getDay()+6)%7);
+  const gi=goalInfo(),h=now.getHours();
+  if(!last)return `${nm}bienvenue ! Ta première séance dure environ ${buildSession().est} minutes. Le plus dur, c'est de commencer, et tu as déjà fait le premier pas en ouvrant l'appli.`;
+  if(gap===0)return `${nm}séance faite aujourd'hui. Bravo ! Pense à boire et à bien dormir, c'est là que ton corps progresse.`;
+  if(!gi.none&&gi.reached)return `${nm}tu as atteint ton objectif ! Je suis fier de toi. Va dans Réglages pour te fixer un nouveau défi.`;
+  if(gap>=4)return `${nm}ça fait ${gap} jours. Pas de culpabilité, on reprend simplement. Même 10 minutes aujourd'hui relancent la machine.`;
+  if(left>0&&left>=daysLeft)return `${nm}il reste ${daysLeft} jour${daysLeft>1?"s":""} cette semaine et ${left} séance${left>1?"s":""} pour tenir ton objectif.${st.cur>0?` Ta série de ${st.cur} semaine${st.cur>1?"s":""} est en jeu !`:""} On s'y met ?`;
+  if(left===0)return `${nm}objectif de la semaine atteint ! Une séance de plus, c'est du bonus pour ta progression.`;
+  if(!gi.none&&gi.pct>=.5)return `${nm}tu as fait ${Math.round(gi.pct*100)} % du chemin vers ton objectif. Continue comme ça, la ligne d'arrivée approche.`;
+  if(st.cur>=2)return `${nm}${st.cur} semaines d'affilée, c'est une vraie habitude qui s'installe. ${q}`;
+  return `${h<12?"Bonjour":h<18?"Salut":"Bonsoir"}${pr.name?" "+pr.name:""} ! ${q}`;
+}
+const COACH_REPLIES={
+  flemme:{me:"Pas motivé aujourd'hui",txt:"Normal, ça arrive à tout le monde. Fais juste l'échauffement : 3 minutes. Si après tu veux arrêter, tu arrêtes. La plupart du temps, on continue.",btn:["Juste l'échauffement",0]},
+  fatigue:{me:"Je suis fatigué",txt:"Écoute ton corps. Je te propose une séance express de 10 minutes, tranquille. Bouger un peu donne souvent de l'énergie. Si tu es vraiment épuisé, repose-toi et reviens demain.",btn:["Séance express 10 min",10]},
+  temps:{me:"Pas le temps",txt:"10 minutes, c'est moins qu'une pause café. Je t'ai préparé une version express de ta séance.",btn:["Séance express 10 min",10]},
+  chaud:{me:"Je suis chaud !",txt:"Voilà ce que je veux entendre ! Donne tout, et si c'est trop facile, dis-le-moi à la fin : on montera d'un cran.",btn:["C'est parti",0]}
+};
+function coachCard(q){
+  return `<section class="card coach"><div class="coach-head">${COACH_AV}<div><h3>Ton coach</h3><p class="muted" style="font-size:.8rem">Toujours là pour te pousser</p></div></div>
+  <p class="bubble">${esc(coachLine(q))}</p>
+  ${coachTalk.map(m=>`<p class="bubble ${m.me?"me":""}">${esc(m.t)}</p>${m.btn?`<button class="btn primary" data-coach-go="${m.btn[1]}">${m.btn[0]}</button>`:""}`).join("")}
+  <div class="chips">${Object.entries(COACH_REPLIES).map(([k,r])=>`<button data-coach="${k}">${r.me}</button>`).join("")}</div>
+  ${SAMPLE?`<form class="row" id="coachf"><input class="text" id="coachin" maxlength="300" placeholder="Écris à ton coach…" aria-label="Message au coach"><button class="btn" type="submit">Envoyer</button></form>`:""}</section>`;
+}
+document.addEventListener("click",e=>{
+  const c=e.target.closest("[data-coach],[data-coach-go]");if(!c)return;
+  if(c.dataset.coach){const r=COACH_REPLIES[c.dataset.coach];coachTalk=[{me:1,t:r.me},{t:r.txt,btn:r.btn}];render()}
+  else{const m=+c.dataset.coachGo;coachTalk=[];startWorkout(m||undefined)}
+});
+document.addEventListener("submit",async e=>{
+  if(e.target.id!=="coachf")return;e.preventDefault();
+  const v=$("#coachin").value.trim();if(!v||!SAMPLE)return;
+  const st=stats(),gi=goalInfo(),pr=S.profile;
+  coachTalk=[{me:1,t:v},{t:"…"}];render();
+  const ctx=`Profil : objectif ${GOALS[pr.goal]?GOALS[pr.goal].l:pr.goal}${gi.none?"":` (cible ${gi.target} ${gi.G.unit}, actuellement ${gi.cur})`}, ${pr.days} séances par semaine visées, ${st.thisWeek} faites cette semaine, série de ${st.cur} semaine(s), ${st.n} séances au total, palier ${Math.floor(S.palier)}/20.`;
+  try{
+    const r=await SAMPLE(`Tu es le coach sportif bienveillant et motivant de l'appli Déclic. Réponds en français, en tutoyant, en 2 à 4 phrases courtes, sans liste. Encourage, propose une action concrète simple (par exemple une séance express de 10 minutes). Pas de conseil médical : en cas de douleur, conseille de consulter.
+${ctx}
+Message de la personne : « ${v} »`,{modelTier:"quick"});
+    coachTalk=[{me:1,t:v},{t:(r.text||"").trim()||"Je suis là. On fait une petite séance ensemble ?"}];
+  }catch(err){coachTalk=[{me:1,t:v},{t:"Je n'arrive pas à répondre pour l'instant. Mais je sais une chose : une petite séance maintenant, tu ne la regretteras pas."}]}
+  render();
+});
+
+/* ---------- Rappels (appli Android) ---------- */
+const NOTIF_MSGS=["C'est l'heure de ta séance. 10 minutes suffisent pour lancer la machine !","Ton futur toi te remercie déjà. On y va ?","Petit rappel : ta séance t'attend. Enfile tes baskets !","La régularité bat l'intensité. Une séance aujourd'hui ?","Ta série compte sur toi. On s'y met ?"];
+function reminderCard(){
+  if(!IS_APP)return `<section class="card"><h2>Rappels</h2><p class="muted">Les notifications marchent dans l'appli Android Déclic. Ici, le plus fiable est de créer une alarme récurrente dans l'app Horloge de ton téléphone, nommée « Déclic ».</p></section>`;
+  const r=S.reminder||{on:false,time:"18:30",days:[1,3,5]};
+  return `<section class="card"><h2>Rappels</h2><p class="muted">Choisis l'heure de ta séance : tu reçois une notification ces jours-là, sauf si tu t'es déjà entraîné.</p>
+  <form id="remf" class="field">
+    <label class="opt"><input type="checkbox" id="rem-on" ${r.on?"checked":""}><span>Activer les rappels</span></label>
+    <label for="rem-time" class="lab">Heure</label><input class="text num" type="time" id="rem-time" value="${esc(r.time)}">
+    <span class="lab">Jours</span><div class="days7">${DAYS.map((l,i)=>`<label class="opt"><input type="checkbox" name="remday" id="remday-${i+1}" value="${i+1}" ${r.days.includes(i+1)?"checked":""}><span>${l}</span></label>`).join("")}</div>
+    <div class="row"><button class="btn primary" type="submit">Enregistrer</button><button class="btn ghost" type="button" data-act="rem-test">Tester</button></div>
+    <p class="muted" id="remst" style="font-size:.85rem">${r.on?`Prochain rappel : ${esc(nextReminderLabel(r))}`:"Rappels désactivés."}</p>
+  </form></section>`;
+}
+function nextReminderLabel(r){
+  const [h,m]=r.time.split(":").map(Number),now=new Date();
+  for(let k=0;k<8;k++){const d=addDays(new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m),k);const iso=((d.getDay()+6)%7)+1;if(r.days.includes(iso)&&d>now)return d.toLocaleDateString("fr-FR",{weekday:"long"})+" à "+r.time.replace(":"," h ");}
+  return "aucun jour choisi";
+}
+function pushReminder(){
+  if(!IS_APP||!S||!S.reminder)return;
+  try{window.ElanAndroid.setReminder(JSON.stringify({...S.reminder,msgs:NOTIF_MSGS,name:S.profile&&S.profile.name||""}))}catch(e){}
+}
+document.addEventListener("submit",e=>{
+  if(e.target.id!=="remf")return;e.preventDefault();
+  const days=[...document.querySelectorAll('input[name="remday"]:checked')].map(i=>+i.value);
+  S.reminder={on:$("#rem-on").checked,time:$("#rem-time").value||"18:30",days};
+  save();pushReminder();if(S.reminder.on){try{window.ElanAndroid.requestNotifications()}catch(err){}}render();
+});
+document.addEventListener("click",e=>{const t=e.target.closest('[data-act="rem-test"]');if(t&&IS_APP){try{window.ElanAndroid.testNotification(NOTIF_MSGS[0])}catch(err){}}});
+pushReminder();
 render();
 </script>

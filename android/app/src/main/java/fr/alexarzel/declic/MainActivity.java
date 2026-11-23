@@ -1,6 +1,9 @@
 package fr.alexarzel.declic;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
@@ -92,6 +95,13 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void askNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            runOnUiThread(() -> requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 7));
+        }
+    }
+
     private void openExternal(Uri u) {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, u));
@@ -151,6 +161,27 @@ public class MainActivity extends Activity {
                 if (on) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             });
+        }
+
+        @JavascriptInterface
+        public void setReminder(final String json) {
+            Reminders.save(MainActivity.this, json);
+        }
+
+        @JavascriptInterface
+        public void requestNotifications() {
+            askNotificationPermission();
+        }
+
+        @JavascriptInterface
+        public void markTrained(final String day) {
+            Reminders.markTrained(MainActivity.this, day);
+        }
+
+        @JavascriptInterface
+        public void testNotification(final String text) {
+            askNotificationPermission();
+            Reminders.show(MainActivity.this, text);
         }
 
         @JavascriptInterface
