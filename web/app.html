@@ -159,6 +159,11 @@ nav.tabs svg{width:24px;height:24px}
 .chips button{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 12px;font-size:.85rem;font-weight:600}
 .days7{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .days7 .opt span{padding:10px 0;text-align:center}
+.pacebox:empty{display:none}
+.pacebox{border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;font-size:.9rem;background:var(--surface);border:1.5px solid var(--good)}
+.pacebox.too{border-color:var(--heat)}
+.pacebox.need{box-shadow:0 0 0 3px var(--heat-soft)}
+.pacebox .row{flex-wrap:wrap;gap:8px}
 /* démos & musique */
 .demo{width:100%;max-width:220px;height:auto;display:block;margin:0 auto;background:var(--sunk);border-radius:12px}
 .demo.sm{max-width:180px}
@@ -521,7 +526,8 @@ function formFields(p){
     <p class="muted" style="font-size:.85rem">${g.prog}</p>
     ${g.startQ?`<label for="gs-${k}">${g.startQ}</label><input class="text num" id="gs-${k}" type="number" inputmode="decimal" step="${g.step}" min="0" value="${o.start??""}">`:""}
     <label for="gt-${k}">${g.tgtQ}</label><input class="text num" id="gt-${k}" type="number" inputmode="decimal" step="${g.step}" min="0" value="${o.target??(k==="douceur"?(p.days||3)*8:"")}" placeholder="Facultatif, mais motivant">
-    <span class="lab" style="font-weight:500">En combien de temps ?</span>${optGroup("gw-"+k,"radio",[[4,"1 mois"],[8,"2 mois"],[12,"3 mois"],[24,"6 mois"]],o.weeks||8)}
+    <span class="lab" style="font-weight:500">En combien de temps ?</span><div id="gwo-${k}">${optGroup("gw-"+k,"radio",weekOpts(o.weeks),o.weeks||8)}</div>
+    <div class="pacebox" id="pace-${k}" aria-live="polite"></div>
   </div>`}).join("")}
   <div class="field"><span class="lab">Ton matériel</span>${optGroup("equip","checkbox",[["rien","Aucun matériel, pas même une chaise"],["halteres","Haltères"],["elastique","Élastique"]],p.equip||[])}<p class="muted" style="font-size:.85rem">« Aucun matériel » : tout se fait au poids du corps, avec le sol et un mur. Sinon, une chaise et une table suffisent.</p></div>
   <div class="field"><span class="lab">Temps par séance</span>${optGroup("minutes","radio",[[10,"10 min"],[20,"20 min"],[30,"30 min"],[45,"45 min"]],p.minutes||20)}</div>
@@ -588,6 +594,7 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("submit",e=>{
   e.preventDefault();
+  if((e.target.id==="onb"||e.target.id==="prof")&&!paceOk())return;
   if(e.target.id==="onb"){const p=readForm({});S={profile:p,palier:p.goal==="douceur"?Math.min(4,START[p.level]):START[p.level],sessions:[],weights:[],measures:{},created:Date.now()};firstMeasure();save();tab="today";render();window.scrollTo(0,0)}
   if(e.target.id==="prof"){S.profile=readForm(S.profile);firstMeasure();save();render();const b=$("#prof button[type=submit]");if(b){b.textContent="Enregistré";}}
   if(e.target.id==="wform"){const v=parseFloat(String($("#kg").value).replace(",","."));if(v>=30&&v<=250){S.weights=S.weights||[];const k=dkey(new Date());S.weights=S.weights.filter(w=>dkey(new Date(w.d))!==k);S.weights.push({d:new Date().toISOString(),kg:Math.round(v*10)/10});save();render()}}
@@ -1030,5 +1037,68 @@ document.addEventListener("submit",e=>{
 });
 document.addEventListener("click",e=>{const t=e.target.closest('[data-act="rem-test"]');if(t&&IS_APP){try{window.ElanAndroid.testNotification(NOTIF_MSGS[0])}catch(err){}}});
 pushReminder();
+/* ---------- Délai réaliste pour l'objectif ---------- */
+const STD_WEEKS=[[4,"1 mois"],[8,"2 mois"],[12,"3 mois"],[24,"6 mois"]];
+function weekOpts(w){const o=STD_WEEKS.slice();if(w&&!o.some(x=>x[0]==w))o.push([w,`${w} semaines`]);return o.sort((a,b)=>a[0]-b[0])}
+function safeRate(k,start,days){
+  if(k==="poids")return Math.max(.5,Math.min(1,start*.01));
+  if(k==="force")return Math.max(1,start*.1);
+  if(k==="tonus")return .75;
+  if(k==="forme")return Math.max(5,start*.1);
+  if(k==="douceur")return days||3;
+  return 1;
+}
+const paceDecision={};
+function paceRead(k){
+  const num=id=>{const el=document.getElementById(id);const x=el?parseFloat(String(el.value).replace(",",".")):NaN;return isFinite(x)&&x>=0?x:null};
+  const G=GOALS[k],start=k==="douceur"?0:num("gs-"+k),target=num("gt-"+k);
+  const w=+(document.querySelector(`input[name="gw-${k}"]:checked`)?.value||8);
+  const days=+(document.querySelector('input[name="days"]:checked')?.value||3);
+  return {G,start,target,w,days};
+}
+function paceInfo(k){
+  const {G,start,target,w,days}=paceRead(k);
+  if(target==null||start==null)return null;
+  const diff=(target-start)*G.dir;
+  if(diff<=0)return {bad:k==="douceur"?"Indique un nombre de séances.":`Ta cible doit être ${G.dir<0?"plus basse":"plus haute"} que ton point de départ.`};
+  const rate=diff/w,safe=safeRate(k,start,days),sug=Math.max(1,Math.ceil(diff/safe));
+  return {G,rate,safe,w,sug,too:rate>safe*1.05,end:addDays(new Date(),w*7),sugEnd:addDays(new Date(),sug*7)};
+}
+const dfr=d=>d.toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});
+function paceRender(k){
+  const box=document.getElementById("pace-"+k);if(!box)return;
+  const p=paceInfo(k);box.className="pacebox";
+  if(!p){box.innerHTML="";return}
+  if(p.bad){box.className="pacebox too";box.innerHTML=`<p>${p.bad}</p>`;return}
+  const u=p.G.unit,per=k==="douceur"?"séances":u;
+  if(!p.too){delete paceDecision[k];box.innerHTML=`<p><b>Délai réaliste.</b> Rythme : ${fmtN(p.rate,per)} par semaine, objectif atteint vers le ${dfr(p.end)}.</p>`;return}
+  box.className="pacebox too";
+  const kept=paceDecision[k]==="keep";
+  box.innerHTML=`<p><b>Ce délai est très ambitieux.</b> Il faudrait ${fmtN(p.rate,per)} par semaine. Un rythme ${k==="poids"?"sain et durable":"réaliste"} pour toi, c'est environ ${fmtN(p.safe,per)} par semaine.</p>
+    <p>Délai conseillé : <b>${p.sug} semaines</b>, soit vers le ${dfr(p.sugEnd)}.</p>
+    ${kept?`<p class="muted">Tu gardes ton délai de ${p.w} semaines. L'appli te montrera quand même le rythme conseillé.</p>`:""}
+    <div class="row"><button type="button" class="btn primary small" data-pace-ok="${k}" data-weeks="${p.sug}">Valider ${p.sug} semaines</button>${kept?"":`<button type="button" class="btn ghost small" data-pace-keep="${k}">Garder ${p.w} semaines</button>`}</div>`;
+}
+function paceOk(){
+  const k=document.querySelector('input[name="goal"]:checked')?.value;if(!k)return true;
+  const p=paceInfo(k);
+  if(!p||p.bad){if(p&&p.bad){const b=document.getElementById("pace-"+k);paceRender(k);b.classList.add("need");b.scrollIntoView({block:"center",behavior:"smooth"});return false}return true}
+  if(p.too&&paceDecision[k]!=="keep"){paceRender(k);const b=document.getElementById("pace-"+k);b.classList.add("need");b.scrollIntoView({block:"center",behavior:"smooth"});return false}
+  return true;
+}
+document.addEventListener("input",e=>{const m=(e.target.id||"").match(/^g[st]-(\w+)$/);if(m){delete paceDecision[m[1]];paceRender(m[1])}});
+document.addEventListener("change",e=>{
+  const n=e.target.name||"";
+  if(n.startsWith("gw-")){const k=n.slice(3);delete paceDecision[k];paceRender(k)}
+  if(n==="goal")paceRender(e.target.value);
+  if(n==="days"){const k=document.querySelector('input[name="goal"]:checked')?.value;if(k)paceRender(k)}
+});
+document.addEventListener("click",e=>{
+  const ok=e.target.closest("[data-pace-ok]"),keep=e.target.closest("[data-pace-keep]");
+  if(ok){const k=ok.dataset.paceOk,w=+ok.dataset.weeks;const wrap=document.getElementById("gwo-"+k);
+    wrap.innerHTML=optGroup("gw-"+k,"radio",weekOpts(w),w);delete paceDecision[k];paceRender(k)}
+  if(keep){paceDecision[keep.dataset.paceKeep]="keep";paceRender(keep.dataset.paceKeep)}
+});
+const _render0=render;render=function(){_render0();const k=document.querySelector('input[name="goal"]:checked')?.value;if(k)paceRender(k)};
 render();
 </script>
