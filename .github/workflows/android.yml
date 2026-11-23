@@ -25,8 +25,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
+      # Le SDK Android est déjà installé sur les machines ubuntu de GitHub (ANDROID_HOME).
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
@@ -60,7 +59,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk declic.apk
-          NOTES=$(git log -1 --pretty=%B)
+          NOTES=$(git log -1 --pretty=%s)
           gh release create "v${BUILD_NUMBER}" declic.apk \
             --title "Déclic 1.${BUILD_NUMBER}" \
             --notes "$NOTES" \
