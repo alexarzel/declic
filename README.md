@@ -7,7 +7,9 @@ Coach de remise en forme : séances guidées qui s'adaptent à ton niveau et à 
 1. Sur ton téléphone, ouvre **https://github.com/alexarzel/declic/releases/latest/download/declic.apk**
 2. Ouvre le fichier téléchargé et accepte l'installation (Android demande d'autoriser l'installation depuis ton navigateur la première fois).
 
-Ensuite, à chaque nouvelle version, l'appli affiche « Une mise à jour est disponible » au démarrage. Touche « Mettre à jour », puis ouvre le fichier téléchargé. Tes données sont conservées.
+Ensuite, les mises à jour arrivent toutes seules : au démarrage, l'appli télécharge la nouvelle version et propose « Recharger ». Il n'y a rien à réinstaller.
+
+Seule exception : quand le code Android lui-même change (fichier `android/native-version.txt` augmenté), l'appli propose de télécharger le nouvel APK.
 
 ## Comment c'est fait
 

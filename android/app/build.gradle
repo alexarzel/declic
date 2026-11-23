@@ -16,6 +16,10 @@ android {
         targetSdk 34
         versionCode buildNumber
         versionName "1.${buildNumber}"
+        // À augmenter seulement quand le code Android (Java, manifeste) change :
+        // les autres modifications arrivent sans réinstaller l'APK.
+        buildConfigField "int", "NATIVE_VERSION", rootProject.file('native-version.txt').text.trim()
+        buildConfigField "String", "REPO", "\"${System.getenv('GITHUB_REPOSITORY') ?: 'alexarzel/declic'}\""
     }
 
     signingConfigs {

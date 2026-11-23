@@ -30,6 +30,8 @@ public class MainActivity extends Activity {
     private static final int FILE_REQUEST = 42;
 
     private WebView web;
+    private volatile boolean usingLive;
+    private volatile String pendingUpdate = "";
     private ValueCallback<Uri[]> fileCallback;
 
     @Override
@@ -38,7 +40,9 @@ public class MainActivity extends Activity {
 
         final WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .addPathHandler("/live/", new WebViewAssetLoader.InternalStoragePathHandler(this, liveDir()))
                 .build();
+        usingLive = LiveUpdate.hasUsablePage(this);
 
         web = new WebView(this);
         setContentView(web);
@@ -91,8 +95,27 @@ public class MainActivity extends Activity {
         if (savedInstanceState != null) {
             web.restoreState(savedInstanceState);
         } else {
-            web.loadUrl("https://" + HOST + "/assets/www/index.html");
+            web.loadUrl(startUrl());
         }
+
+        // Cherche une nouvelle version en arrière-plan.
+        new Thread(() -> {
+            LiveUpdate.Result r = LiveUpdate.check(getApplicationContext(), usingLive);
+            if (r == LiveUpdate.Result.NONE) return;
+            pendingUpdate = r == LiveUpdate.Result.WEB_READY ? "web" : "apk";
+            runOnUiThread(() -> web.evaluateJavascript(
+                    "window.onDeclicUpdate && window.onDeclicUpdate('" + pendingUpdate + "')", null));
+        }).start();
+    }
+
+    private java.io.File liveDir() {
+        java.io.File d = LiveUpdate.dir(this);
+        if (!d.isDirectory()) d.mkdirs();
+        return d;
+    }
+
+    private String startUrl() {
+        return "https://" + HOST + (usingLive ? "/live/index.html" : "/assets/www/index.html");
     }
 
     private void askNotificationPermission() {
@@ -182,6 +205,25 @@ public class MainActivity extends Activity {
         public void testNotification(final String text) {
             askNotificationPermission();
             Reminders.show(MainActivity.this, text);
+        }
+
+        @JavascriptInterface
+        public String pendingUpdate() {
+            return pendingUpdate;
+        }
+
+        @JavascriptInterface
+        public String apkUrl() {
+            return LiveUpdate.APK_URL;
+        }
+
+        @JavascriptInterface
+        public void reload() {
+            runOnUiThread(() -> {
+                usingLive = LiveUpdate.hasUsablePage(MainActivity.this);
+                pendingUpdate = "";
+                web.loadUrl(startUrl());
+            });
         }
 
         @JavascriptInterface

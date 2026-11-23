@@ -59,8 +59,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk declic.apk
+          cp android/app/src/main/assets/www/index.html web.html
+          cp android/native-version.txt native-version.txt
           NOTES=$(git log -1 --pretty=%s)
-          gh release create "v${BUILD_NUMBER}" declic.apk \
+          gh release create "v${BUILD_NUMBER}" declic.apk web.html native-version.txt \
             --title "Déclic 1.${BUILD_NUMBER}" \
             --notes "$NOTES" \
             --latest

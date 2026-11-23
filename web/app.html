@@ -933,19 +933,31 @@ const REPO="__REPO__";
 let UPDATE=null,updState="";
 function updateBanner(){
   if(!UPDATE||UPDATE.dismissed)return "";
+  if(UPDATE.kind==="web")return `<section class="card upd"><p class="eyebrow">Mise à jour téléchargée</p><h2>Une nouvelle version est prête</h2>
+  <p class="muted" style="font-size:.88rem">Rien à installer : touche « Recharger » pour l'utiliser. Tes données sont conservées.</p>
+  <div class="row"><button class="btn primary" data-act="update-reload">Recharger</button><button class="btn ghost" data-act="update-later">Plus tard</button></div></section>`;
   return `<section class="card upd"><p class="eyebrow">Nouvelle version ${esc(UPDATE.name)}</p><h2>Une mise à jour est disponible</h2>
   ${UPDATE.notes?`<p class="muted" style="font-size:.88rem;white-space:pre-line">${esc(UPDATE.notes.slice(0,400))}</p>`:""}
   ${updState?`<p class="muted" style="font-size:.88rem">${updState}</p>`:""}
   <div class="row"><button class="btn primary" data-act="update">Mettre à jour</button><button class="btn ghost" data-act="update-later">Plus tard</button></div></section>`;
 }
-if(IS_APP&&/\//.test(REPO)){(async()=>{try{
-  const r=await fetch(`https://api.github.com/repos/${REPO}/releases/latest`,{headers:{Accept:"application/vnd.github+json"}});if(!r.ok)return;
-  const j=await r.json(),n=parseInt(String(j.tag_name||"").replace(/\D/g,""),10),mine=+window.ElanAndroid.versionCode();
-  const a=(j.assets||[]).find(x=>/\.apk$/i.test(x.name));
-  if(a&&n>mine){UPDATE={name:j.name||j.tag_name,notes:j.body||"",url:a.browser_download_url};if($("#player").hidden)render()}
-}catch(e){}})()}
+window.onDeclicUpdate=function(kind){
+  UPDATE=kind==="web"?{kind:"web",name:"",notes:""}:{kind:"apk",name:"",notes:"",url:window.ElanAndroid.apkUrl?window.ElanAndroid.apkUrl():""};
+  if($("#player").hidden)render();
+};
+if(IS_APP){
+  try{const p=window.ElanAndroid.pendingUpdate&&window.ElanAndroid.pendingUpdate();if(p)window.onDeclicUpdate(p)}catch(e){}
+  /* Ancienne version de l'appli (sans mise à jour automatique) : on vérifie les versions publiées. */
+  if(!window.ElanAndroid.pendingUpdate&&/\//.test(REPO))(async()=>{try{
+    const r=await fetch(`https://api.github.com/repos/${REPO}/releases/latest`,{headers:{Accept:"application/vnd.github+json"}});if(!r.ok)return;
+    const j=await r.json(),n=parseInt(String(j.tag_name||"").replace(/\D/g,""),10),mine=+window.ElanAndroid.versionCode();
+    const a=(j.assets||[]).find(x=>/\.apk$/i.test(x.name));
+    if(a&&n>mine){UPDATE={kind:"apk",name:j.name||j.tag_name,notes:"Cette version installe les mises à jour toute seule : c'est le dernier téléchargement à faire.",url:a.browser_download_url};if($("#player").hidden)render()}
+  }catch(e){}})();
+}
 document.addEventListener("click",e=>{
   const t=e.target.closest("[data-act]");if(!t||!UPDATE)return;
+  if(t.dataset.act==="update-reload"){window.ElanAndroid.reload();return}
   if(t.dataset.act==="update"){window.ElanAndroid.openUrl(UPDATE.url);updState="Le téléchargement démarre. Ouvre ensuite le fichier .apk pour installer la nouvelle version : tes données sont conservées.";render()}
   if(t.dataset.act==="update-later"){UPDATE.dismissed=true;render()}
 });
