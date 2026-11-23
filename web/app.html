@@ -180,6 +180,7 @@ nav.tabs svg{width:24px;height:24px}
 .bars .b{display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;font-size:.68rem;color:var(--muted)}
 .bars .b i{display:block;width:100%;max-width:26px;border-radius:6px 6px 2px 2px;background:var(--sunk)}
 .bars .b i.ok{background:var(--good)}.bars .b i.part{background:var(--accent)}
+.mealall{display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .grid2 label{display:block;font-weight:500;font-size:.88rem;margin-bottom:4px}
 .bodybox{background:var(--sunk);border-radius:12px;padding:12px}
@@ -1371,45 +1372,71 @@ if(S&&S.profile&&checkChallenge(true))save();
 /* ---------- Idées de repas ---------- */
 // [nom, ingrédients, minutes, tags] — v : végétarien, l : léger, p : riche en protéines
 const MEALS={
-  pdj:[["Fromage blanc, avoine et fruits rouges","200 g de fromage blanc, 3 c. à soupe de flocons d'avoine, une poignée de fruits rouges.",3,"vlp"],
-    ["Omelette aux épinards et pain complet","2 œufs, une poignée d'épinards, 1 tranche de pain complet, un fruit.",10,"vlp"],
-    ["Porridge banane et beurre de cacahuète","50 g de flocons d'avoine cuits dans du lait, ½ banane, 1 c. à café de beurre de cacahuète.",7,"vp"],
-    ["Tartines complètes et œuf à la coque","2 tranches de pain complet, 1 œuf à la coque, un fruit de saison.",8,"vl"],
-    ["Skyr, kiwi et graines","1 pot de skyr, 1 kiwi, 1 c. à soupe de graines (chia, courge ou lin).",2,"vlp"],
-    ["Pancakes banane","1 banane écrasée et 2 œufs, cuits à la poêle en petites galettes. Un yaourt nature à côté.",10,"vp"],
-    ["Bol salé cottage cheese","Cottage cheese, tomates cerises, concombre, une tranche de pain complet.",5,"vlp"],
-    ["Smoothie de la séance","Un verre de lait, 1 banane, 2 c. à soupe de flocons d'avoine, 1 yaourt grec, mixés.",3,"vp"]],
-  dej:[["Salade poulet, quinoa et crudités","100 g de quinoa cuit, 120 g de poulet grillé, tomates, concombre, poivron, filet d'huile d'olive et citron.",15,"lp"],
-    ["Bowl lentilles, carottes et feta","150 g de lentilles cuites, carottes râpées, 30 g de feta, persil, vinaigrette légère.",15,"vlp"],
-    ["Wrap complet au thon","1 galette complète, 1 boîte de thon au naturel, salade, tomate, 1 c. à soupe de fromage frais.",10,"lp"],
-    ["Saumon, riz complet et brocolis","120 g de saumon au four, 1 poing de riz complet, brocolis vapeur, citron.",20,"p"],
-    ["Pâtes complètes thon-tomate","1 poing de pâtes complètes, sauce tomate, 1 boîte de thon, basilic, un peu de parmesan.",15,"p"],
-    ["Chili sin carne","Haricots rouges, maïs, tomates concassées, oignon, épices, servi avec un peu de riz.",25,"vp"],
-    ["Bowl pois chiches et patate douce","Pois chiches rôtis au paprika, patate douce au four, jeunes pousses d'épinards, sauce yaourt.",25,"vl"],
-    ["Steak haché 5 % et haricots verts","1 steak haché 5 %, haricots verts, 2 ou 3 pommes de terre vapeur.",20,"lp"],
-    ["Taboulé boulgour et poulet","Boulgour, poulet en dés, tomates, concombre, menthe, citron.",15,"lp"]],
-  col:[["Fruit et amandes","Un fruit et une petite poignée d'amandes (une quinzaine).",0,"vl"],
-    ["Yaourt grec et miel","1 yaourt grec nature, 1 c. à café de miel.",1,"vp"],
-    ["Carottes et houmous","Bâtonnets de carotte et de concombre, 2 c. à soupe d'houmous.",5,"vl"],
-    ["Œuf dur et tomates cerises","1 ou 2 œufs durs, une poignée de tomates cerises.",10,"vlp"],
-    ["Banane et lait après la séance","1 banane et un verre de lait : idéal dans l'heure qui suit l'entraînement.",0,"vp"],
-    ["Fromage blanc à la cannelle","150 g de fromage blanc, cannelle, quelques morceaux de pomme.",2,"vlp"],
-    ["Galette de riz et beurre de cacahuète","2 galettes de riz, 1 c. à café de beurre de cacahuète, rondelles de banane.",2,"vp"]],
-  din:[["Soupe de légumes et tartine de chèvre","Un grand bol de soupe de légumes, 1 tranche de pain complet avec un peu de chèvre.",20,"vl"],
-    ["Papillote de cabillaud et courgettes","Cabillaud, rondelles de courgette et tomate, citron, herbes, 20 min au four.",25,"lp"],
-    ["Omelette aux champignons et salade","2 ou 3 œufs, champignons poêlés, salade verte, vinaigrette légère.",10,"vlp"],
-    ["Poêlée de légumes et tofu","Tofu en dés doré à la poêle, poivron, brocoli, carotte, sauce soja, gingembre.",15,"vlp"],
-    ["Dinde et purée de patate douce","1 escalope de dinde, purée de patate douce, haricots verts.",25,"lp"],
-    ["Salade niçoise","Thon, œuf dur, haricots verts, tomates, olives, quelques pommes de terre.",15,"lp"],
-    ["Curry pois chiches et épinards","Pois chiches, épinards, lait de coco léger, curry, un peu de riz basmati.",25,"vp"],
-    ["Poulet rôti et ratatouille","Un morceau de poulet rôti sans la peau, une belle portion de ratatouille.",30,"lp"]]
+  pdj:[["Fromage blanc, avoine et fruits rouges","200 g de fromage blanc, 3 c. à soupe de flocons d'avoine, une poignée de fruits rouges.",3,"vlp","Fromage blanc 3 %:200;Flocons d'avoine:30;Myrtilles:80"],
+    ["Omelette aux épinards et pain complet","2 œufs, une poignée d'épinards, 1 tranche de pain complet, un fruit.",10,"vlp","Œuf:120;Épinards cuits:80;Pain complet:40;Pomme:150;Huile d'olive:5"],
+    ["Porridge banane et beurre de cacahuète","50 g de flocons d'avoine cuits dans du lait, ½ banane, 1 c. à café de beurre de cacahuète.",7,"vp","Flocons d'avoine:50;Lait demi-écrémé:200;Banane:60;Beurre de cacahuète:5"],
+    ["Tartines complètes et œuf à la coque","2 tranches de pain complet, 1 œuf à la coque, un fruit de saison.",8,"vls","Pain complet:80;Œuf:60;Pomme:150"],
+    ["Skyr, kiwi et graines","1 pot de skyr, 1 kiwi, 1 c. à soupe de graines (chia, courge ou lin).",2,"vlp","Skyr:150;Kiwi:75;Graines de chia:10"],
+    ["Pancakes banane","1 banane écrasée et 2 œufs, cuits à la poêle en petites galettes. Un yaourt nature à côté.",10,"vp","Banane:120;Œuf:120;Yaourt nature:125;Huile d'olive:3"],
+    ["Bol salé cottage cheese","Cottage cheese, tomates cerises, concombre, une tranche de pain complet.",5,"vlp","Cottage cheese:150;Tomate:100;Concombre:100;Pain complet:40"],
+    ["Smoothie de la séance","Un verre de lait, 1 banane, 2 c. à soupe de flocons d'avoine, 1 yaourt grec, mixés.",3,"vp","Lait demi-écrémé:200;Banane:120;Flocons d'avoine:20;Yaourt à la grecque:150"],
+    ["Tartines beurre-confiture et café au lait","2 tartines de baguette avec un peu de beurre et de confiture, un café au lait.",3,"vs","Baguette:80;Beurre:10;Confiture:20;Lait demi-écrémé:150"],
+    ["Bol de céréales, lait et fruit","1 bol de céréales (40 g) avec du lait demi-écrémé, une pomme.",2,"vs","Céréales du petit-déjeuner:40;Lait demi-écrémé:200;Pomme:150"],
+    ["Yaourt, banane et tartine","1 yaourt nature, 1 banane, 1 tranche de pain complet avec un peu de beurre.",2,"vls","Yaourt nature:125;Banane:120;Pain complet:40;Beurre:5"],
+    ["Œufs brouillés, pain et jus d'orange","2 œufs brouillés, 1 tranche de pain, un verre de jus d'orange.",5,"vlps","Œuf:120;Pain complet:40;Jus d'orange:200"]],
+  dej:[["Salade poulet, quinoa et crudités","100 g de quinoa cuit, 120 g de poulet grillé, tomates, concombre, poivron, filet d'huile d'olive et citron.",15,"lp","Quinoa cuit:100;Blanc de poulet cuit:120;Tomate:120;Concombre:100;Poivron:60;Huile d'olive:10"],
+    ["Bowl lentilles, carottes et feta","150 g de lentilles cuites, carottes râpées, 30 g de feta, persil, vinaigrette légère.",15,"vlp","Lentilles cuites:150;Carotte crue:100;Feta:30;Huile d'olive:5"],
+    ["Wrap complet au thon","1 galette complète, 1 boîte de thon au naturel, salade, tomate, 1 c. à soupe de fromage frais.",10,"lp","Tortilla (wrap):60;Thon au naturel:100;Salade verte:30;Tomate:80;Fromage blanc 3 %:20"],
+    ["Saumon, riz complet et brocolis","120 g de saumon au four, 1 poing de riz complet, brocolis vapeur, citron.",20,"p","Saumon cuit:120;Riz complet cuit:150;Brocoli cuit:150"],
+    ["Pâtes complètes thon-tomate","1 poing de pâtes complètes, sauce tomate, 1 boîte de thon, basilic, un peu de parmesan.",15,"ps","Pâtes complètes cuites:180;Sauce tomate:100;Thon au naturel:100;Emmental:10"],
+    ["Chili sin carne","Haricots rouges, maïs, tomates concassées, oignon, épices, servi avec un peu de riz.",25,"vp","Haricots rouges cuits:200;Maïs:50;Sauce tomate:150;Riz blanc cuit:100"],
+    ["Bowl pois chiches et patate douce","Pois chiches rôtis au paprika, patate douce au four, jeunes pousses d'épinards, sauce yaourt.",25,"vl","Pois chiches cuits:150;Patate douce cuite:200;Épinards cuits:50;Yaourt nature:60;Huile d'olive:5"],
+    ["Steak haché 5 % et haricots verts","1 steak haché 5 %, haricots verts, 2 ou 3 pommes de terre vapeur.",20,"lps","Steak haché 5 % cuit:100;Haricots verts cuits:150;Pommes de terre cuites:200"],
+    ["Taboulé boulgour et poulet","Boulgour, poulet en dés, tomates, concombre, menthe, citron.",15,"lp","Boulgour cuit:150;Blanc de poulet cuit:100;Tomate:100;Concombre:80;Huile d'olive:5"],
+    ["Jambon-coquillettes","1 assiette de coquillettes, 2 tranches de jambon, un peu de râpé, une tomate en salade.",12,"ps","Pâtes cuites:200;Jambon blanc:80;Emmental:15;Tomate:120"],
+    ["Steak haché, pâtes et salade","1 steak haché, 1 assiette de pâtes, salade verte avec un filet d'huile.",15,"ps","Steak haché 5 % cuit:100;Pâtes cuites:150;Salade verte:50;Huile d'olive:5"],
+    ["Poulet, riz et haricots verts","1 blanc de poulet poêlé, 1 assiette de riz, haricots verts.",20,"lps","Blanc de poulet cuit:120;Riz blanc cuit:150;Haricots verts cuits:150;Huile d'olive:5"],
+    ["Croque-monsieur et salade","1 croque-monsieur maison ou du commerce, une belle salade verte.",10,"s","Croque-monsieur:150;Salade verte:50;Huile d'olive:5"],
+    ["Omelette, pommes de terre et salade","Omelette de 2 œufs, 2 pommes de terre sautées ou vapeur, salade verte.",15,"vls","Œuf:120;Pommes de terre cuites:200;Salade verte:50;Huile d'olive:5"],
+    ["Sandwich jambon-beurre et fruit","Le classique sur le pouce : 1 jambon-beurre et un fruit.",2,"s","Sandwich jambon-beurre:220;Pomme:150"],
+    ["Hachis parmentier et salade","1 part de hachis parmentier (maison ou surgelé), salade verte.",10,"s","Hachis parmentier:300;Salade verte:50"],
+    ["Lasagnes et salade verte","1 part de lasagnes, salade verte.",5,"s","Lasagnes:300;Salade verte:50"]],
+  col:[["Fruit et amandes","Un fruit et une petite poignée d'amandes (une quinzaine).",0,"vls","Pomme:150;Amandes:15"],
+    ["Yaourt grec et miel","1 yaourt grec nature, 1 c. à café de miel.",1,"vp","Yaourt à la grecque:150;Miel:7"],
+    ["Carottes et houmous","Bâtonnets de carotte et de concombre, 2 c. à soupe d'houmous.",5,"vl","Carotte crue:100;Concombre:100;Houmous:40"],
+    ["Œuf dur et tomates cerises","1 ou 2 œufs durs, une poignée de tomates cerises.",10,"vlps","Œuf:90;Tomate:100"],
+    ["Banane et lait après la séance","1 banane et un verre de lait : idéal dans l'heure qui suit l'entraînement.",0,"vps","Banane:120;Lait demi-écrémé:250"],
+    ["Fromage blanc à la cannelle","150 g de fromage blanc, cannelle, quelques morceaux de pomme.",2,"vlp","Fromage blanc 3 %:150;Pomme:60"],
+    ["Galette de riz et beurre de cacahuète","2 galettes de riz, 1 c. à café de beurre de cacahuète, rondelles de banane.",2,"vp","Galette de riz:18;Beurre de cacahuète:5;Banane:50"],
+    ["Pomme et carré de chocolat","1 pomme et 1 ou 2 carrés de chocolat noir.",0,"vls","Pomme:150;Chocolat noir 70 %:10"],
+    ["Yaourt et deux biscuits","1 yaourt nature et 2 biscuits secs.",0,"vs","Yaourt nature:125;Biscuits secs:15"],
+    ["Tartine de pain et fromage","1 morceau de baguette et une portion de fromage.",1,"vs","Baguette:40;Emmental:20"],
+    ["Compote et biscuits","1 compote sans sucre ajouté et 2 biscuits secs.",0,"vs","Compote sans sucre ajouté:100;Biscuits secs:15"]],
+  din:[["Soupe de légumes et tartine de chèvre","Un grand bol de soupe de légumes, 1 tranche de pain complet avec un peu de chèvre.",20,"vl","Soupe de légumes:350;Pain complet:40;Fromage de chèvre:25"],
+    ["Papillote de cabillaud et courgettes","Cabillaud, rondelles de courgette et tomate, citron, herbes, 20 min au four.",25,"lp","Cabillaud cuit:150;Courgette cuite:200;Tomate:80;Huile d'olive:5"],
+    ["Omelette aux champignons et salade","2 ou 3 œufs, champignons poêlés, salade verte, vinaigrette légère.",10,"vlp","Œuf:150;Champignons de Paris cuits:100;Salade verte:50;Huile d'olive:8"],
+    ["Poêlée de légumes et tofu","Tofu en dés doré à la poêle, poivron, brocoli, carotte, sauce soja, gingembre.",15,"vlp","Tofu:150;Poivron:80;Brocoli cuit:100;Carotte crue:60;Huile d'olive:8"],
+    ["Dinde et purée de patate douce","1 escalope de dinde, purée de patate douce, haricots verts.",25,"lp","Escalope de dinde cuite:120;Patate douce cuite:200;Haricots verts cuits:100"],
+    ["Salade niçoise","Thon, œuf dur, haricots verts, tomates, olives, quelques pommes de terre.",15,"lp","Thon au naturel:80;Œuf:60;Haricots verts cuits:100;Tomate:120;Olives:20;Pommes de terre cuites:100;Huile d'olive:8"],
+    ["Curry pois chiches et épinards","Pois chiches, épinards, lait de coco léger, curry, un peu de riz basmati.",25,"vp","Pois chiches cuits:150;Épinards cuits:100;Lait de coco léger:60;Riz blanc cuit:100"],
+    ["Poulet rôti et ratatouille","Un morceau de poulet rôti sans la peau, une belle portion de ratatouille.",30,"lp","Cuisse de poulet cuite:130;Ratatouille:250"],
+    ["Pâtes sauce tomate et râpé","1 assiette de pâtes, sauce tomate, un peu de fromage râpé.",15,"vs","Pâtes cuites:200;Sauce tomate:100;Emmental:15"],
+    ["Soupe, jambon et fromage","1 bol de soupe (brique ou maison), 1 tranche de jambon, 1 tartine avec un peu de fromage.",5,"ls","Soupe de légumes:300;Jambon blanc:40;Baguette:40;Camembert:30"],
+    ["Omelette au fromage et salade","Omelette de 2 œufs avec un peu de fromage, salade verte, 1 tranche de pain.",10,"vls","Œuf:120;Emmental:20;Salade verte:50;Pain complet:40"],
+    ["Poisson pané, purée et haricots verts","2 poissons panés au four, purée, haricots verts.",15,"ps","Poisson pané:100;Purée de pommes de terre:200;Haricots verts cuits:150"],
+    ["Saucisses-lentilles","1 saucisse, une assiette de lentilles cuisinées.",15,"ps","Saucisse cuite:100;Lentilles cuites:200"],
+    ["Salade composée express","Salade, tomate, 1 œuf dur, ½ boîte de thon, 2 pommes de terre, vinaigrette.",10,"lps","Salade verte:50;Tomate:120;Œuf:60;Thon au naturel:50;Pommes de terre cuites:100;Huile d'olive:10"],
+    ["Riz cantonais","1 assiette de riz cantonais (maison ou traiteur).",10,"s","Riz cantonais:300"]]
 };
 const SLOT_L={pdj:"Petit-déjeuner",dej:"Déjeuner",col:"Collation",din:"Dîner"};
-let mealSlot=null,mealShift={},mealPlanOpen=false,mealAI="";
+let mealSlot=null,mealShift={},mealPlanOpen=false,mealAI="",mealAllOpen=false,mealLogged="";
+function mealItems(m){return (m[4]||"").split(";").filter(Boolean).map(x=>{const i=x.lastIndexOf(":");const f=FOOD.find(y=>y.n===x.slice(0,i));return f?{f,g:+x.slice(i+1)}:null}).filter(Boolean)}
+function mealKcal(m){return mealItems(m).reduce((a,{f,g})=>a+f.k*g/100,0)}
 function autoSlot(){const h=new Date().getHours();return h<10?"pdj":h<15?"dej":h<18?"col":"din"}
 function mealsFor(slot){
-  const veg=!!(S.mealPrefs&&S.mealPrefs.veg),g=S.profile.goal;
-  let l=MEALS[slot].filter(m=>!veg||m[3].includes("v"));
+  const veg=!!(S.mealPrefs&&S.mealPrefs.veg),simple=!!(S.mealPrefs&&S.mealPrefs.simple),g=S.profile.goal;
+  let l=MEALS[slot].filter(m=>(!veg||m[3].includes("v"))&&(!simple||m[3].includes("s")));
+  if(!l.length)l=MEALS[slot].filter(m=>!veg||m[3].includes("v"));
   const pref=g==="poids"||g==="tonus"?"l":g==="force"?"p":"";
   if(pref){const a=l.filter(m=>m[3].includes(pref));if(a.length>=3)l=a}
   return l;
@@ -1418,21 +1445,29 @@ function pickMeal(slot){const l=mealsFor(slot),day=Math.floor(Date.now()/864e5);
 function portionTip(){const g=S.profile.goal;return g==="poids"?"Féculents : une portion de la taille de ton poing. Légumes à volonté.":g==="force"?"Si tu as encore faim, ajoute une portion de féculents ou un laitage.":"Adapte la portion à ta faim."}
 function mealCard(){
   const slot=mealSlot||autoSlot(),m=pickMeal(slot),veg=!!(S.mealPrefs&&S.mealPrefs.veg);
-  return `<section class="card meal" id="meals"><div class="row between"><p class="eyebrow">Idée de repas</p><label class="opt"><input type="checkbox" id="meal-veg" ${veg?"checked":""}><span style="padding:4px 10px;font-size:.8rem">Végétarien</span></label></div>
+  return `<section class="card meal" id="meals"><div class="row between"><p class="eyebrow">Idée de repas</p><div class="row" style="gap:6px"><label class="opt"><input type="checkbox" id="meal-simple" ${S.mealPrefs&&S.mealPrefs.simple?"checked":""}><span style="padding:4px 10px;font-size:.8rem">Simple</span></label><label class="opt"><input type="checkbox" id="meal-veg" ${veg?"checked":""}><span style="padding:4px 10px;font-size:.8rem">Végétarien</span></label></div></div>
     <div class="chips" role="tablist">${Object.entries(SLOT_L).map(([k,l])=>`<button data-meal-slot="${k}" ${k===slot?'style="border-color:var(--accent);color:var(--accent)"':""}>${l}</button>`).join("")}</div>
     <h3>${m[0]}</h3><p class="ing">${m[1]}</p>
     <p class="muted" style="font-size:.85rem">${m[2]?`Prêt en ${m[2]} min. `:""}${portionTip()}</p>
-    <div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="meal-next">Autre idée</button><button class="btn ghost small" data-act="meal-plan">${mealPlanOpen?"Masquer":"Menu"} de la journée</button><button class="btn ghost small" data-act="shop-open">Liste de courses</button></div>
+    <div class="row" style="flex-wrap:wrap">${m[4]&&bodyOk()?`<button class="btn primary small" data-act="meal-log">Je mange ça · ${fmt(mealKcal(m))} kcal</button>`:""}<button class="btn small" data-act="meal-next">Autre idée</button><button class="btn ghost small" data-act="meal-all">${mealAllOpen?"Masquer la liste":"Choisir dans la liste"}</button><button class="btn ghost small" data-act="meal-plan">${mealPlanOpen?"Masquer":"Menu"} de la journée</button><button class="btn ghost small" data-act="shop-open">Liste de courses</button></div>
+    ${mealLogged?`<p class="ok" style="font-size:.9rem">${esc(mealLogged)}</p>`:""}
+    ${mealAllOpen?`<div class="mealall">${mealsFor(slot).map((x,i)=>`<button type="button" class="fitem" data-meal-pick="${i}"><span><b>${esc(x[0])}</b><small class="muted">${x[3].includes("s")?"Simple · ":""}${x[2]?x[2]+" min":"sans cuisson"}</small></span>${x[4]?`<span class="num">${fmt(mealKcal(x))} kcal</span>`:""}</button>`).join("")}</div>`:""}
     ${mealPlanOpen?`<div class="mealplan">${Object.entries(SLOT_L).map(([k,l])=>{const x=pickMeal(k);return `<div><p class="eyebrow">${l}</p><b>${x[0]}</b><p class="muted" style="font-size:.85rem">${x[1]}</p></div>`}).join("")}</div>`:""}
     ${SAMPLE?`<form class="field" id="mealai"><label for="mealai-in" class="lab" style="font-weight:500">Ou dis-moi ce que tu as dans ton frigo</label><div class="row"><input class="text" id="mealai-in" maxlength="200" placeholder="ex. œufs, courgette, riz, feta"><button class="btn" type="submit">Proposer</button></div></form>${mealAI?`<p class="ai-out">${esc(mealAI)}</p>`:""}`:""}
   </section>`;
 }
 document.addEventListener("click",e=>{
-  const sl=e.target.closest("[data-meal-slot]");if(sl){mealSlot=sl.dataset.mealSlot;render();return}
+  const sl=e.target.closest("[data-meal-slot]");if(sl){mealSlot=sl.dataset.mealSlot;mealLogged="";render();return}
+  const mp=e.target.closest("[data-meal-pick]");if(mp){const k=mealSlot||autoSlot(),day=Math.floor(Date.now()/864e5);mealShift[k]=+mp.dataset.mealPick-day;mealAllOpen=false;mealLogged="";render();setTimeout(()=>{const el=$("#meals");if(el)el.scrollIntoView({block:"start"})},30);return}
   const t=e.target.closest("[data-act]");if(!t)return;
   if(t.dataset.act==="meal-next"){const k=mealSlot||autoSlot();mealShift[k]=(mealShift[k]||0)+1;render()}
   if(t.dataset.act==="meal-plan"){mealPlanOpen=!mealPlanOpen;render()}
+  if(t.dataset.act==="meal-all"){mealAllOpen=!mealAllOpen;render()}
+  if(t.dataset.act==="meal-log"){const k=mealSlot||autoSlot(),m=pickMeal(k),day=dkey(new Date());S.food=S.food||{};let id=Date.now();
+    S.food[day]=(S.food[day]||[]).concat(mealItems(m).map(({f,g})=>{const v=per(f,g);return {id:id++,n:f.n,m:k,g,...Object.fromEntries(Object.entries(v).map(([x,y])=>[x,Math.round(y*10)/10]))}}));
+    mealLogged=`Ajouté à ton compteur d'aujourd'hui (${SLOT_L[k].toLowerCase()}). Tu peux ajuster les quantités dans l'onglet Nutrition.`;save();render();setTimeout(()=>{mealLogged=""},4000)}
 });
+document.addEventListener("change",e=>{if(e.target.id==="meal-simple"){S.mealPrefs={...(S.mealPrefs||{}),simple:e.target.checked};mealShift={};save();render()}});
 document.addEventListener("change",e=>{if(e.target.id==="meal-veg"){S.mealPrefs={...(S.mealPrefs||{}),veg:e.target.checked};mealShift={};save();render()}});
 document.addEventListener("submit",async e=>{
   if(e.target.id!=="mealai")return;e.preventDefault();
@@ -1522,6 +1557,29 @@ document.addEventListener("click",e=>{
 /* ---------- Liste de courses ---------- */
 // ingrédient : rayon (L : fruits et légumes, F : frais, V : viandes et poissons, E : épicerie)
 const ING={
+ "Tartines beurre-confiture et café au lait":"baguette:E|beurre:F|confiture:E|lait:F|café:E",
+ "Bol de céréales, lait et fruit":"céréales:E|lait:F|pommes:L",
+ "Yaourt, banane et tartine":"yaourts nature:F|bananes:L|pain complet:E|beurre:F",
+ "Œufs brouillés, pain et jus d'orange":"œufs:F|pain complet:E|jus d'orange:E",
+ "Jambon-coquillettes":"coquillettes:E|jambon:V|fromage râpé:F|tomates:L",
+ "Steak haché, pâtes et salade":"steaks hachés 5 %:V|pâtes:E|salade verte:L|huile d'olive:E",
+ "Poulet, riz et haricots verts":"blancs de poulet:V|riz:E|haricots verts:L|huile d'olive:E",
+ "Croque-monsieur et salade":"pain de mie:E|jambon:V|fromage râpé:F|salade verte:L",
+ "Omelette, pommes de terre et salade":"œufs:F|pommes de terre:L|salade verte:L|huile d'olive:E",
+ "Sandwich jambon-beurre et fruit":"baguette:E|jambon:V|beurre:F|pommes:L",
+ "Hachis parmentier et salade":"hachis parmentier:F|salade verte:L",
+ "Lasagnes et salade verte":"lasagnes:F|salade verte:L",
+ "Pomme et carré de chocolat":"pommes:L|chocolat noir:E",
+ "Yaourt et deux biscuits":"yaourts nature:F|biscuits secs:E",
+ "Tartine de pain et fromage":"baguette:E|emmental:F",
+ "Compote et biscuits":"compotes sans sucre ajouté:L|biscuits secs:E",
+ "Pâtes sauce tomate et râpé":"pâtes:E|sauce tomate:E|fromage râpé:F",
+ "Soupe, jambon et fromage":"soupe de légumes:F|jambon:V|baguette:E|camembert:F",
+ "Omelette au fromage et salade":"œufs:F|fromage râpé:F|salade verte:L|pain complet:E",
+ "Poisson pané, purée et haricots verts":"poissons panés:V|purée (ou pommes de terre):L|haricots verts:L",
+ "Saucisses-lentilles":"saucisses:V|lentilles:E",
+ "Salade composée express":"salade verte:L|tomates:L|œufs:F|thon au naturel:E|pommes de terre:L|huile d'olive:E",
+ "Riz cantonais":"riz cantonais:F",
  "Fromage blanc, avoine et fruits rouges":"fromage blanc:F|flocons d'avoine:E|fruits rouges:L",
  "Omelette aux épinards et pain complet":"œufs:F|épinards:L|pain complet:E|fruits:L",
  "Porridge banane et beurre de cacahuète":"flocons d'avoine:E|lait:F|bananes:L|beurre de cacahuète:E",
@@ -1796,7 +1854,23 @@ Biscuits secs|Sucré|450|7|70|15|3|30|4 biscuits
 Confiture|Sucré|245|0.4|60|0.1|1|20|1 c. à soupe
 Miel|Sucré|320|0.4|80|0|0|15|1 c. à soupe
 Sucre|Sucré|400|0|100|0|0|5|1 morceau
-Glace|Sucré|210|3.5|25|10.5|0.5|100|2 boules`;
+Glace|Sucré|210|3.5|25|10.5|0.5|100|2 boules
+Croque-monsieur|Plats et en-cas|260|13|24|12|1.5|150|1 croque-monsieur
+Hachis parmentier|Plats et en-cas|130|7.5|10|7|1.2|300|1 part
+Riz cantonais|Plats et en-cas|165|6|23|5.5|1|300|1 assiette
+Poisson pané|Viandes et poissons|200|13|17|9|1|100|2 poissons panés
+Purée de pommes de terre|Féculents|90|2|13|3.5|1.3|200|1 assiette
+Sauce tomate|Légumes|50|1.5|7|1.5|1.5|100|1 louche
+Omelette nature|Œufs et laitiers|155|11|0.5|12|0|120|2 œufs
+Steak-frites|Plats et en-cas|230|11|20|12|2|300|1 assiette
+Cottage cheese|Œufs et laitiers|100|11|3.5|4.5|0|150|1 pot
+Fromage de chèvre|Œufs et laitiers|300|19|1|24|0|25|1 tranche
+Boulgour cuit|Féculents|85|3.1|16|0.2|4.5|150|1 assiette
+Maïs|Légumes|90|3|15|1.5|2.5|80|½ boîte
+Houmous|Plats et en-cas|300|7.5|12|25|5|40|2 c. à soupe
+Tofu|Viandes et poissons|125|13|1.5|7.5|1|150|½ bloc
+Olives|Matières grasses et oléagineux|150|1|1|15|3|20|une poignée
+Lait de coco léger|Matières grasses et oléagineux|90|1|2.5|8.5|0|60|¼ de brique`;
 const FOOD=FOOD_RAW.split("\n").map(l=>{const a=l.split("|");return {n:a[0],cat:a[1],k:+a[2],p:+a[3],c:+a[4],l:+a[5],f:+a[6],pg:+a[7],pl:a[8]}});
 const FCATS=[...new Set(FOOD.map(f=>f.cat))];
 const MEALS4=[["pdj","Petit-déjeuner"],["dej","Déjeuner"],["col","Collation"],["din","Dîner"]];
