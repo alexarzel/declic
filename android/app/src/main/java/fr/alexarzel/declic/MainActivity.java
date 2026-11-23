@@ -12,6 +12,8 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
+import java.util.Locale;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
@@ -37,6 +39,9 @@ public class MainActivity extends Activity {
     private volatile boolean usingLive;
     private volatile String pendingUpdate = "";
     private long lastStepsPush = 0;
+    private TextToSpeech tts;
+    private boolean ttsReady = false;
+    private String ttsPending;
     private final SensorEventListener stepListener = new SensorEventListener() {
         @Override
         public void onSensorChanged(SensorEvent e) {
@@ -45,6 +50,7 @@ public class MainActivity extends Activity {
             if (now - lastStepsPush > 15000) {
                 lastStepsPush = now;
                 web.evaluateJavascript("window.onDeclicSteps && window.onDeclicSteps()", null);
+                Widget.refresh(MainActivity.this);
             }
         }
 
@@ -76,6 +82,31 @@ public class MainActivity extends Activity {
     protected void onPause() {
         super.onPause();
         stopSteps();
+        Widget.refresh(this);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (tts != null) tts.shutdown();
+        super.onDestroy();
+    }
+
+    /** Lecture à voix haute (mode séance guidée). */
+    private void say(String text) {
+        if (tts == null) {
+            ttsPending = text;
+            tts = new TextToSpeech(getApplicationContext(), status -> {
+                if (status == TextToSpeech.SUCCESS) {
+                    tts.setLanguage(Locale.FRANCE);
+                    ttsReady = true;
+                    if (ttsPending != null) tts.speak(ttsPending, TextToSpeech.QUEUE_FLUSH, null, "declic");
+                }
+                ttsPending = null;
+            });
+            return;
+        }
+        if (ttsReady) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "declic");
+        else ttsPending = text;
     }
 
     @Override
@@ -301,6 +332,28 @@ public class MainActivity extends Activity {
                 } catch (ActivityNotFoundException ignored) {
                 }
             });
+        }
+
+        @JavascriptInterface
+        public void speak(final String text) {
+            runOnUiThread(() -> say(text));
+        }
+
+        @JavascriptInterface
+        public void markWater(final String day, final int count, final int goal) {
+            Water.mark(MainActivity.this, day, count, goal);
+            Widget.refresh(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void setWater(final String json) {
+            Water.save(MainActivity.this, json);
+            if (json.contains("\"on\":true")) askNotificationPermission();
+        }
+
+        @JavascriptInterface
+        public void updateWidget(final String json) {
+            Widget.save(MainActivity.this, json);
         }
 
         @JavascriptInterface

@@ -155,6 +155,7 @@ public class Steps extends BroadcastReceiver {
             if (once[0]) return;
             once[0] = true;
             scheduleMidnight(ctx);
+            Widget.refresh(ctx);
             pr.finish();
         });
     }

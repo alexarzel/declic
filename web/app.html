@@ -186,6 +186,14 @@ textarea.text{resize:vertical;min-height:90px;font-family:ui-monospace,monospace
 .mealplan{display:flex;flex-direction:column;gap:10px}
 .mealplan div{border-top:1px solid var(--line);padding-top:8px}
 .ai-out{white-space:pre-line;font-size:.92rem}
+/* eau, sommeil, courses */
+.glasses{display:flex;gap:4px;flex-wrap:wrap}
+.glasses svg{width:26px;height:32px}
+.scale{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.scale .opt span{padding:8px 2px;text-align:center;font-size:.78rem}
+.shop label{display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+.shop input{width:20px;height:20px;accent-color:var(--good)}
+.shop .got{text-decoration:line-through;color:var(--muted)}
 /* démos & musique */
 .demo{width:100%;max-width:220px;height:auto;display:block;margin:0 auto;background:var(--sunk);border-radius:12px}
 .demo.sm{max-width:180px}
@@ -351,7 +359,8 @@ function dose(id,p,goal){
 }
 function stepSec(st){return st.m==="time"?st.v:st.v*(st.s?2:1)*3}
 function buildSession(minOverride){
-  const pr=S.profile,goal=pr.goal,lim=pr.lim||[],p=goal==="douceur"?Math.min(10,Math.floor(S.palier)):Math.floor(S.palier),idx=S.sessions.length,type=["A","B","C"][idx%3];
+  const wa=wellAdjust();
+  const pr=S.profile,goal=pr.goal,lim=pr.lim||[],p0=goal==="douceur"?Math.min(10,Math.floor(S.palier)):Math.floor(S.palier),p=wa.light?Math.max(1,p0-2):wa.boost?Math.min(20,p0+1):p0,idx=S.sessions.length,type=["A","B","C"][idx%3];
   let plan=PLAN[type].slice();
   if(goal==="poids"&&type!=="A")plan.push("jacks");
   if(goal==="force")plan=plan.filter(x=>x!=="jacks"&&x!=="genoux");
@@ -370,9 +379,9 @@ function buildSession(minOverride){
     const fin=adapt("genoux",lim,goal,p);if(goal==="poids")st.push({k:"work",id:fin,n:"Finisher : "+EX[fin].n.toLowerCase(),c:EX[fin].c,m:"time",v:p>=8?45:30,r:R,R});
     st.push(...cool);return st;
   };
-  const target=minOverride||pr.minutes;let R=1;for(let k=2;k<=6;k++){if(make(k).reduce((a,s)=>a+stepSec(s),0)<=target*60+60)R=k;}
+  const target=Math.round((minOverride||pr.minutes)*(wa.light?.7:1));let R=1;for(let k=2;k<=6;k++){if(make(k).reduce((a,s)=>a+stepSec(s),0)<=target*60+60)R=k;}
   const steps=make(R),est=Math.round(steps.reduce((a,s)=>a+stepSec(s),0)/60);
-  return {type,name:TYPES[type],exs,rounds:R,rest,steps,est,num:idx+1};
+  return {type,name:TYPES[type],exs,rounds:R,rest,steps,est,num:idx+1,light:wa.light,boost:wa.boost,why:wa.why};
 }
 function doseLabel(e){return e.m==="time"?`${e.v} s`:`${e.v}${e.s?" / côté":""}`}
 
@@ -504,6 +513,7 @@ function today(){
     <p class="eyebrow">${todayDone?"Déjà une séance aujourd'hui, bravo":"Ta séance du jour"} · n° ${se.num}</p>
     <h1>${se.name}</h1>
     <div class="meta num"><div><b>≈ ${se.est}</b><span>minutes</span></div><div><b>${se.rounds}</b><span>tour${se.rounds>1?"s":""}</span></div><div><b>${Math.floor(S.palier)}</b><span>palier</span></div></div>
+    ${se.light||se.boost?`<p class="chip ${se.light?"heat":""}" style="background:var(--on-accent);align-self:flex-start">${se.light?"Séance allégée":"Petit bonus d'intensité"} · ${esc(se.why)}</p>`:""}
     <button class="btn big" data-act="start">Commencer</button>
   </section>
   ${coachCard(q)}
@@ -516,8 +526,11 @@ function today(){
   </section>
   <section class="card"><div class="streak"><span class="n num">${st.cur}</span><div><h3>semaine${st.cur>1?"s":""} d'affilée</h3><p class="muted">Une semaine compte quand tu atteins ${pr.days} séances. Record : ${st.best}.</p></div></div></section>
   ${challengeCard()}
+  ${wellCard()}
+  ${waterCard()}
   ${stepsCard()}
   ${mealCard()}
+  ${shopOpen?shopCard():""}
   ${nutriCard(false)}
   ${musicMini()}
   <section class="card"><div class="row between"><h2>Au programme</h2><span class="muted">${se.rounds} × ce circuit</span></div>
@@ -662,6 +675,7 @@ function startWorkout(minOverride){
   W={se,i:0,t0:Date.now(),stepStart:Date.now(),paused:false,pausedAt:0,last:-1,phase:"run"};
   wake();$("#player").hidden=false;document.body.style.overflow="hidden";
   drawStep();W.timer=setInterval(tick,200);
+  announce(true);
 }
 function remaining(){const st=W.se.steps[W.i];if(st.m!=="time")return null;
   const el=((W.paused?W.pausedAt:Date.now())-W.stepStart)/1000;return Math.max(0,Math.ceil(st.v-el))}
@@ -669,14 +683,16 @@ function tick(){
   if(!W||W.phase!=="run"||W.paused)return;
   const st=W.se.steps[W.i];
   if(st.m==="time"){const r=remaining();
-    if(r!==W.last){W.last=r;const el=$("#cd");if(el)el.textContent=r;if(r<=3&&r>0)beep(660,.1);}
+    if(r!==W.last){W.last=r;const el=$("#cd");if(el)el.textContent=r;
+      if(voiceOn()){if(r===10&&st.v>=25)speak("Encore 10 secondes");else if(r<=3&&r>0)speak(String(r));}
+      else if(r<=3&&r>0)beep(660,.1);}
     if(r<=0)next();
   }else{const el=$("#cd2");if(el){const s=Math.floor((Date.now()-W.stepStart)/1000);el.textContent=`${Math.floor(s/60)}:${pad(s%60)}`}}
 }
 function next(){
   W.i++;W.stepStart=Date.now();W.last=-1;
   if(W.i>=W.se.steps.length){finish(true);return}
-  const st=W.se.steps[W.i];beep(st.k==="rest"?520:990,.25);buzz(st.k==="rest"?120:[80,60,80]);drawStep();
+  const st=W.se.steps[W.i];beep(st.k==="rest"?520:990,.25);buzz(st.k==="rest"?120:[80,60,80]);drawStep();announce();
 }
 function drawStep(){
   const P=$("#player"),se=W.se,st=se.steps[W.i],nx=se.steps.slice(W.i+1).find(s=>s.k!=="rest");
@@ -687,7 +703,7 @@ function drawStep(){
     ?`<div class="big"><span id="cd">${remaining()}</span><small>secondes</small></div>`
     :`<div class="big">${st.v}<small>répétitions${st.s?" par côté":""}</small></div><p class="muted num">À ton rythme · <span id="cd2">0:00</span></p>`;
   P.innerHTML=`<div class="pin">
-    <div class="row between"><span class="eyebrow num">${se.name} · ${pct} %</span><button class="btn small ghost" data-w="quit">Arrêter</button></div>
+    <div class="row between"><span class="eyebrow num">${se.name} · ${pct} %</span><span class="row" style="gap:6px"><button class="btn small ghost" data-voice aria-pressed="${voiceOn()}">${voiceOn()?"Voix : oui":"Voix : non"}</button><button class="btn small ghost" data-w="quit">Arrêter</button></span></div>
     <div class="prog"><i style="width:${pct}%"></i></div>${musicBar()}
     <div class="stage">${st.id&&FIG[st.id]?figSvg(st.id):(st.k==="rest"&&nx&&nx.id&&FIG[nx.id]?figSvg(nx.id):"")}<span class="kind">${label}</span><h1>${st.n}</h1>${main}${st.c?`<p class="cue">${st.c}</p>`:""}
       ${nx?`<p class="next">Ensuite : <b>${nx.n}</b>${nx.k==="work"?" · "+doseLabel(nx):""}</p>`:""}</div>
@@ -1077,6 +1093,7 @@ function reminderCard(){
     <label class="opt"><input type="checkbox" id="rem-on" ${r.on?"checked":""}><span>Activer les rappels</span></label>
     <label for="rem-time" class="lab">Heure</label><input class="text num" type="time" id="rem-time" value="${esc(r.time)}">
     <span class="lab">Jours</span><div class="days7">${DAYS.map((l,i)=>`<label class="opt"><input type="checkbox" name="remday" id="remday-${i+1}" value="${i+1}" ${r.days.includes(i+1)?"checked":""}><span>${l}</span></label>`).join("")}</div>
+    <label class="opt"><input type="checkbox" id="water-on" ${(S.waterRem&&S.waterRem.on)?"checked":""}><span>Rappels pour boire (toutes les 2 h, de 9 h à 21 h, jusqu'à ton objectif)</span></label>
     <div class="row"><button class="btn primary" type="submit">Enregistrer</button><button class="btn ghost" type="button" data-act="rem-test">Tester</button></div>
     <p class="muted" id="remst" style="font-size:.85rem">${r.on?`Prochain rappel : ${esc(nextReminderLabel(r))}`:"Rappels désactivés."}</p>
   </form></section>`;
@@ -1094,6 +1111,8 @@ document.addEventListener("submit",e=>{
   if(e.target.id!=="remf")return;e.preventDefault();
   const days=[...document.querySelectorAll('input[name="remday"]:checked')].map(i=>+i.value);
   S.reminder={on:$("#rem-on").checked,time:$("#rem-time").value||"18:30",days};
+  S.waterRem={on:!!($("#water-on")&&$("#water-on").checked),from:9,to:21,every:2};
+  try{if(typeof window.ElanAndroid.setWater==="function")window.ElanAndroid.setWater(JSON.stringify({...S.waterRem,goal:waterGoal()}))}catch(err){}
   save();pushReminder();if(S.reminder.on){try{window.ElanAndroid.requestNotifications()}catch(err){}}render();
 });
 document.addEventListener("click",e=>{const t=e.target.closest('[data-act="rem-test"]');if(t&&IS_APP){try{window.ElanAndroid.testNotification(NOTIF_MSGS[0])}catch(err){}}});
@@ -1363,7 +1382,7 @@ function mealCard(){
     <div class="chips" role="tablist">${Object.entries(SLOT_L).map(([k,l])=>`<button data-meal-slot="${k}" ${k===slot?'style="border-color:var(--accent);color:var(--accent)"':""}>${l}</button>`).join("")}</div>
     <h3>${m[0]}</h3><p class="ing">${m[1]}</p>
     <p class="muted" style="font-size:.85rem">${m[2]?`Prêt en ${m[2]} min. `:""}${portionTip()}</p>
-    <div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="meal-next">Autre idée</button><button class="btn ghost small" data-act="meal-plan">${mealPlanOpen?"Masquer":"Menu"} de la journée</button></div>
+    <div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="meal-next">Autre idée</button><button class="btn ghost small" data-act="meal-plan">${mealPlanOpen?"Masquer":"Menu"} de la journée</button><button class="btn ghost small" data-act="shop-open">Liste de courses</button></div>
     ${mealPlanOpen?`<div class="mealplan">${Object.entries(SLOT_L).map(([k,l])=>{const x=pickMeal(k);return `<div><p class="eyebrow">${l}</p><b>${x[0]}</b><p class="muted" style="font-size:.85rem">${x[1]}</p></div>`}).join("")}</div>`:""}
     ${SAMPLE?`<form class="field" id="mealai"><label for="mealai-in" class="lab" style="font-weight:500">Ou dis-moi ce que tu as dans ton frigo</label><div class="row"><input class="text" id="mealai-in" maxlength="200" placeholder="ex. œufs, courgette, riz, feta"><button class="btn" type="submit">Proposer</button></div></form>${mealAI?`<p class="ai-out">${esc(mealAI)}</p>`:""}`:""}
   </section>`;
@@ -1391,5 +1410,159 @@ function musicMini(){
     <div class="row" style="flex-wrap:wrap">${m.link?`<a class="btn small" href="${esc(m.link)}" target="_blank" rel="noopener">Ouvrir ma playlist</a>`:""}<button class="btn ghost small" data-tab="profile" data-goto="music">Gérer ma musique</button></div></section>`;
 }
 document.addEventListener("click",e=>{const t=e.target.closest("[data-goto]");if(t)setTimeout(()=>{const el=document.getElementById(t.dataset.goto);if(el)el.scrollIntoView({block:"start"})},50)});
+/* ---------- Voix ---------- */
+function voiceOn(){return !!(S&&S.voice&&S.voice.on)}
+let frVoice=null;
+try{const pickV=()=>{const vs=speechSynthesis.getVoices();frVoice=vs.find(v=>/^fr/i.test(v.lang))||null};pickV();speechSynthesis.onvoiceschanged=pickV}catch(e){}
+function speak(text){
+  if(!voiceOn())return;
+  if(AU&&!AU.paused){const v=AU.volume;AU.volume=Math.max(.05,v*.35);setTimeout(()=>{if(AU)AU.volume=(S.music&&S.music.vol!=null)?S.music.vol:.8},Math.min(6000,700+text.length*75))}
+  try{if(window.ElanAndroid&&typeof window.ElanAndroid.speak==="function"){window.ElanAndroid.speak(text);return}}catch(e){}
+  try{const u=new SpeechSynthesisUtterance(text);u.lang="fr-FR";if(frVoice)u.voice=frVoice;u.rate=1.05;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}
+}
+function sayDose(st){return st.m==="time"?`${st.v} secondes`:`${st.v} répétitions${st.s?" par côté":""}`}
+function announce(first){
+  if(!W||!voiceOn())return;
+  const st=W.se.steps[W.i],nx=W.se.steps.slice(W.i+1).find(x=>x.k!=="rest");
+  let t="";
+  if(first)t="C'est parti ! ";
+  if(st.k==="rest")t+=`Récupération, ${st.v} secondes.${nx?` Ensuite : ${nx.n}, ${nx.k==="work"?sayDose(nx):""}.`:""}`;
+  else if(st.k==="work")t+=`${st.n}. ${sayDose(st)}.${st.m==="reps"?" Touche Fait quand tu as fini.":""}`;
+  else t+=`${st.n}, ${st.v} secondes.`;
+  speak(t);
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-voice]");if(!b)return;S.voice={...(S.voice||{}),on:!voiceOn()};save();if(W&&W.phase==="run"){drawStep();if(voiceOn())announce()}else render()});
+
+/* ---------- Sommeil et humeur ---------- */
+const SCALE=["Très mal","Mal","Moyen","Bien","Très bien"];
+function lastWell(){const w=S.wellness||[];return w.length?w[w.length-1]:null}
+function wellAdjust(){
+  const n=lastWell();if(!n||Date.now()-n.t>20*3600e3)return {};
+  if(n.sleep<=2&&n.mood<=2)return {light:true,why:"mauvaise nuit et petit moral"};
+  if(n.sleep<=2)return {light:true,why:"tu as mal dormi"};
+  if(n.mood<=2)return {light:true,why:"tu n'étais pas en forme hier soir"};
+  if(n.sleep>=5&&n.mood>=5)return {boost:true,why:"tu es en pleine forme"};
+  return {};
+}
+function wellCard(){
+  const h=new Date().getHours(),n=lastWell(),recent=n&&Date.now()-n.t<12*3600e3;
+  if(recent){const wa=wellAdjust();return n&&Date.now()-n.t<3*3600e3?`<section class="card"><p class="eyebrow">Ton bilan du soir</p><p>Sommeil : <b>${SCALE[n.sleep-1]}</b> · Humeur : <b>${SCALE[n.mood-1]}</b>.</p><p class="muted">${wa.light?"Ta prochaine séance sera allégée, pour récupérer sans perdre le rythme.":wa.boost?"Super ! Ta prochaine séance sera un peu plus intense.":"Ta prochaine séance garde son intensité normale."}</p></section>`:""}
+  if(!(h>=18||h<11))return "";
+  const q=h<11?"Comment as-tu dormi, et comment tu te sens ce matin ?":"Comment s'est passée ta journée ? Et ta dernière nuit ?";
+  return `<section class="card"><p class="eyebrow">${h<11?"Bilan du matin":"Bilan du soir"} · 10 secondes</p><p>${q}</p>
+    <form id="wellf" class="field"><span class="lab" style="font-weight:500">Sommeil</span><div class="scale">${SCALE.map((l,i)=>`<label class="opt"><input type="radio" name="wsleep" id="wsleep-${i+1}" value="${i+1}"><span>${l}</span></label>`).join("")}</div>
+    <span class="lab" style="font-weight:500">Humeur et énergie</span><div class="scale">${SCALE.map((l,i)=>`<label class="opt"><input type="radio" name="wmood" id="wmood-${i+1}" value="${i+1}"><span>${l}</span></label>`).join("")}</div>
+    <button class="btn primary" type="submit">Enregistrer</button><p class="muted" style="font-size:.8rem">Le coach adapte l'intensité de ta prochaine séance.</p></form></section>`;
+}
+document.addEventListener("submit",e=>{
+  if(e.target.id!=="wellf")return;e.preventDefault();
+  const sl=+(document.querySelector('input[name="wsleep"]:checked')?.value||0),md=+(document.querySelector('input[name="wmood"]:checked')?.value||0);
+  if(!sl||!md)return;
+  S.wellness=(S.wellness||[]).concat([{t:Date.now(),sleep:sl,mood:md}]).slice(-60);save();render();
+});
+
+/* ---------- Hydratation ---------- */
+const waterGoal=()=>(S&&S.waterGoal)||8;
+const waterToday=()=>((S.water||{})[dkey(new Date())]||0);
+function glassSvg(full){return `<svg viewBox="0 0 26 32" aria-hidden="true"><path d="M3 3h20l-2.5 26h-15z" fill="${full?"var(--accent)":"none"}" fill-opacity="${full?.85:0}" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/></svg>`}
+function waterCard(){
+  const n=waterToday(),g=waterGoal();
+  return `<section class="card"><div class="row between"><div><p class="eyebrow">Hydratation</p><h3 class="num">${n} verre${n>1?"s":""} sur ${g}</h3></div><div class="row" style="gap:6px"><button class="btn small" data-water="-1" aria-label="Retirer un verre">−</button><button class="btn primary small" data-water="1">+ 1 verre</button></div></div>
+    <div class="glasses" aria-label="${n} verres sur ${g}">${Array.from({length:Math.max(g,n)},(_,i)=>glassSvg(i<n)).join("")}</div>
+    <p class="muted" style="font-size:.85rem">${n>=g?"Objectif atteint, bravo !":"Un verre fait environ 25 cl. Bois un peu à chaque fois, tout au long de la journée."}</p></section>`;
+}
+function pushWater(){try{if(IS_APP&&typeof window.ElanAndroid.markWater==="function")window.ElanAndroid.markWater(dkey(new Date()),waterToday(),waterGoal())}catch(e){}}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-water]");if(!b)return;
+  const k=dkey(new Date());S.water=S.water||{};S.water[k]=Math.max(0,(S.water[k]||0)+(+b.dataset.water));
+  const ks=Object.keys(S.water).sort();while(ks.length>60)delete S.water[ks.shift()];
+  save();pushWater();render();
+});
+
+/* ---------- Liste de courses ---------- */
+// ingrédient : rayon (L : fruits et légumes, F : frais, V : viandes et poissons, E : épicerie)
+const ING={
+ "Fromage blanc, avoine et fruits rouges":"fromage blanc:F|flocons d'avoine:E|fruits rouges:L",
+ "Omelette aux épinards et pain complet":"œufs:F|épinards:L|pain complet:E|fruits:L",
+ "Porridge banane et beurre de cacahuète":"flocons d'avoine:E|lait:F|bananes:L|beurre de cacahuète:E",
+ "Tartines complètes et œuf à la coque":"pain complet:E|œufs:F|fruits:L",
+ "Skyr, kiwi et graines":"skyr:F|kiwis:L|graines (chia, courge ou lin):E",
+ "Pancakes banane":"bananes:L|œufs:F|yaourts nature:F",
+ "Bol salé cottage cheese":"cottage cheese:F|tomates cerises:L|concombre:L|pain complet:E",
+ "Smoothie de la séance":"lait:F|bananes:L|flocons d'avoine:E|yaourt grec:F",
+ "Salade poulet, quinoa et crudités":"quinoa:E|blancs de poulet:V|tomates:L|concombre:L|poivron:L|citrons:L",
+ "Bowl lentilles, carottes et feta":"lentilles:E|carottes:L|feta:F|persil:L",
+ "Wrap complet au thon":"galettes de blé complet:E|thon au naturel:E|salade:L|tomates:L|fromage frais:F",
+ "Saumon, riz complet et brocolis":"pavés de saumon:V|riz complet:E|brocolis:L|citrons:L",
+ "Pâtes complètes thon-tomate":"pâtes complètes:E|sauce tomate:E|thon au naturel:E|basilic:L|parmesan:F",
+ "Chili sin carne":"haricots rouges:E|maïs:E|tomates concassées:E|oignons:L|épices chili:E|riz:E",
+ "Bowl pois chiches et patate douce":"pois chiches:E|patates douces:L|épinards:L|yaourt nature:F",
+ "Steak haché 5 % et haricots verts":"steaks hachés 5 %:V|haricots verts:L|pommes de terre:L",
+ "Taboulé boulgour et poulet":"boulgour:E|blancs de poulet:V|tomates:L|concombre:L|menthe:L|citrons:L",
+ "Fruit et amandes":"fruits:L|amandes:E",
+ "Yaourt grec et miel":"yaourt grec:F|miel:E",
+ "Carottes et houmous":"carottes:L|concombre:L|houmous:F",
+ "Œuf dur et tomates cerises":"œufs:F|tomates cerises:L",
+ "Banane et lait après la séance":"bananes:L|lait:F",
+ "Fromage blanc à la cannelle":"fromage blanc:F|cannelle:E|pommes:L",
+ "Galette de riz et beurre de cacahuète":"galettes de riz:E|beurre de cacahuète:E|bananes:L",
+ "Soupe de légumes et tartine de chèvre":"légumes pour soupe:L|pain complet:E|fromage de chèvre:F",
+ "Papillote de cabillaud et courgettes":"dos de cabillaud:V|courgettes:L|tomates:L|citrons:L",
+ "Omelette aux champignons et salade":"œufs:F|champignons:L|salade:L",
+ "Poêlée de légumes et tofu":"tofu:F|poivron:L|brocolis:L|carottes:L|sauce soja:E|gingembre:L",
+ "Dinde et purée de patate douce":"escalopes de dinde:V|patates douces:L|haricots verts:L",
+ "Salade niçoise":"thon au naturel:E|œufs:F|haricots verts:L|tomates:L|olives:E|pommes de terre:L",
+ "Curry pois chiches et épinards":"pois chiches:E|épinards:L|lait de coco léger:E|curry:E|riz basmati:E",
+ "Poulet rôti et ratatouille":"cuisses de poulet:V|courgettes:L|aubergine:L|poivron:L|tomates:L|oignons:L"
+};
+const AISLE={L:"Fruits et légumes",F:"Frais et crèmerie",V:"Viandes et poissons",E:"Épicerie"};
+let shopOpen=false;
+function weekMenu(){
+  const mon=monday(new Date()),out=[];
+  for(let d=0;d<7;d++){const day=Math.floor(addDays(mon,d).getTime()/864e5)+1;const row={date:addDays(mon,d)};
+    for(const k of Object.keys(SLOT_L)){const l=mealsFor(k);row[k]=l[((day)%l.length+l.length)%l.length]}out.push(row)}
+  return out;
+}
+function shopList(){
+  const cnt={};weekMenu().forEach(r=>Object.keys(SLOT_L).forEach(k=>{(ING[r[k][0]]||"").split("|").filter(Boolean).forEach(x=>{const [n,a]=x.split(":");cnt[n]=cnt[n]||{a,n:0};cnt[n].n++})}));
+  return cnt;
+}
+function shopState(){const k=dkey(monday(new Date()));if(!S.shop||S.shop.week!==k)S.shop={week:k,got:[]};return S.shop}
+function shopCard(){
+  const cnt=shopList(),st=shopState(),menu=weekMenu();
+  const groups=Object.keys(AISLE).map(a=>[a,Object.entries(cnt).filter(([,v])=>v.a===a).sort((x,y)=>x[0].localeCompare(y[0],"fr"))]).filter(g=>g[1].length);
+  return `<section class="card shop" id="shop"><div class="row between"><h2>Courses de la semaine</h2><button class="btn ghost small" data-act="shop-close">Fermer</button></div>
+    <p class="muted" style="font-size:.88rem">Pour le menu de la semaine ci-dessous${S.mealPrefs&&S.mealPrefs.veg?" (végétarien)":""}. Coche ce que tu as déjà.</p>
+    ${groups.map(([a,l])=>`<p class="eyebrow" style="margin-top:6px">${AISLE[a]}</p>${l.map(([n,v])=>{const got=st.got.includes(n);return `<label><input type="checkbox" data-shop="${esc(n)}" ${got?"checked":""}><span class="${got?"got":""}">${esc(n)}${v.n>1?` <span class="muted num">× ${v.n}</span>`:""}</span></label>`}).join("")}`).join("")}
+    <div class="row" style="flex-wrap:wrap"><button class="btn primary small" data-act="shop-copy">${IS_APP?"Partager la liste":"Copier la liste"}</button><button class="btn ghost small" data-act="shop-reset">Tout décocher</button></div>
+    <p class="muted" id="shopst" style="font-size:.85rem" hidden></p>
+    <details><summary class="muted" style="cursor:pointer">Voir le menu de la semaine</summary><div class="mealplan">${menu.map(r=>`<div><p class="eyebrow">${r.date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric"})}</p><p style="font-size:.88rem">${Object.entries(SLOT_L).map(([k,l])=>`<b>${l} :</b> ${r[k][0]}`).join("<br>")}</p></div>`).join("")}</div></details></section>`;
+}
+function shopText(){const cnt=shopList(),st=shopState();return "Courses Déclic\n"+Object.keys(AISLE).map(a=>{const l=Object.entries(cnt).filter(([n,v])=>v.a===a&&!st.got.includes(n)).map(([n])=>"- "+n);return l.length?`\n${AISLE[a]}\n${l.join("\n")}`:""}).join("")}
+document.addEventListener("change",e=>{const n=e.target.dataset&&e.target.dataset.shop;if(n===undefined)return;const st=shopState();st.got=e.target.checked?[...new Set(st.got.concat([n]))]:st.got.filter(x=>x!==n);save();render()});
+document.addEventListener("click",async e=>{
+  const t=e.target.closest("[data-act]");if(!t)return;const a=t.dataset.act;
+  if(a==="shop-open"){shopOpen=true;render();setTimeout(()=>{const el=$("#shop");if(el)el.scrollIntoView({block:"start"})},50)}
+  if(a==="shop-close"){shopOpen=false;render()}
+  if(a==="shop-reset"){shopState().got=[];save();render()}
+  if(a==="shop-copy"){const txt=shopText(),el=$("#shopst");
+    if(IS_APP&&typeof window.ElanAndroid.shareText==="function"){window.ElanAndroid.shareText("Courses Déclic",txt);return}
+    try{await navigator.clipboard.writeText(txt);el.hidden=false;el.textContent="Liste copiée. Colle-la dans tes notes ou envoie-la par message."}catch(err){el.hidden=false;el.textContent="Copie impossible ici. Fais une capture d'écran de la liste."}}
+});
+
+/* ---------- Widget Android ---------- */
+let lastWidget="";
+function pushWidget(){
+  if(!IS_APP||typeof window.ElanAndroid.updateWidget!=="function"||!S||!S.profile)return;
+  try{
+    const st=stats(),r=S.reminder,se=buildSession();
+    let nextTxt=se.name+" · ≈ "+se.est+" min";
+    if(r&&r.on){const l=nextReminderLabel(r);if(l&&l!=="aucun jour choisi")nextTxt=l.charAt(0).toUpperCase()+l.slice(1)+" · "+se.name}
+    const d=JSON.stringify({streak:st.cur,steps:stepsOn()?(STEPS[dkey(new Date())]||0):-1,next:nextTxt,water:waterToday(),waterGoal:waterGoal(),week:st.thisWeek+"/"+S.profile.days});
+    if(d!==lastWidget){lastWidget=d;window.ElanAndroid.updateWidget(d)}
+  }catch(e){}
+}
+const _render1=render;render=function(){_render1();pushWidget()};
+pushWater();
 render();
 </script>
