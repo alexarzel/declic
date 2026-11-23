@@ -38,22 +38,24 @@ jobs:
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
         run: |
-          if [ -n "$KEYSTORE_B64" ]; then
-            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
-            echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-          else
-            echo "::warning::Pas de secret KEYSTORE_B64 : l'APK est signé avec une clé de debug, les mises à jour ne pourront pas s'installer par-dessus."
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::warning::Il manque les secrets KEYSTORE_B64 et KEYSTORE_PASSWORD (la clé de signature) : l'APK est construit pour vérification mais pas publié."
+            echo "NO_RELEASE=1" >> "$GITHUB_ENV"
+            exit 0
           fi
+          echo "$KEYSTORE_B64" | tr -d ' \n\r' | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
       - name: Construire l'APK
         working-directory: android
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: declic
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: gradle --no-daemon assembleRelease
 
       - name: Publier la version
+        if: env.NO_RELEASE != '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -63,3 +65,9 @@ jobs:
             --title "Déclic 1.${BUILD_NUMBER}" \
             --notes "$NOTES" \
             --latest
+
+      - name: Signaler l'absence de clé
+        if: env.NO_RELEASE == '1'
+        run: |
+          echo "::error::APK construit mais non publié : ajoute les secrets KEYSTORE_B64 et KEYSTORE_PASSWORD au dépôt."
+          exit 1
