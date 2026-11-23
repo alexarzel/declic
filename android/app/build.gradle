@@ -1,0 +1,49 @@
+plugins {
+    id 'com.android.application'
+}
+
+def envInt = { String name, int fallback -> (System.getenv(name) ?: "$fallback").toInteger() }
+def buildNumber = envInt('BUILD_NUMBER', 1)
+def ks = System.getenv('KEYSTORE_FILE')
+
+android {
+    namespace 'fr.alexarzel.declic'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'fr.alexarzel.declic'
+        minSdk 26
+        targetSdk 34
+        versionCode buildNumber
+        versionName "1.${buildNumber}"
+    }
+
+    signingConfigs {
+        release {
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KEY_ALIAS')
+                keyPassword System.getenv('KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig ks ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    buildFeatures { buildConfig true }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+}
