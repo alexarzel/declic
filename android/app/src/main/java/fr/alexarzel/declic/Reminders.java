@@ -124,6 +124,7 @@ public class Reminders extends BroadcastReceiver {
             String today = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Calendar.getInstance().getTime());
             if (!today.equals(prefs(ctx).getString("lastTrained", ""))) show(ctx, randomMessage(ctx));
         }
+        if (!ACTION_FIRE.equals(intent.getAction())) Steps.scheduleMidnight(ctx);
         schedule(ctx); // programme le suivant (et reprogramme après un redémarrage ou une mise à jour)
     }
 }

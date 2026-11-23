@@ -2,6 +2,10 @@ package fr.alexarzel.declic;
 
 import android.Manifest;
 import android.app.Activity;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.content.ActivityNotFoundException;
@@ -32,6 +36,56 @@ public class MainActivity extends Activity {
     private WebView web;
     private volatile boolean usingLive;
     private volatile String pendingUpdate = "";
+    private long lastStepsPush = 0;
+    private final SensorEventListener stepListener = new SensorEventListener() {
+        @Override
+        public void onSensorChanged(SensorEvent e) {
+            Steps.onTotal(MainActivity.this, e.values[0]);
+            long now = System.currentTimeMillis();
+            if (now - lastStepsPush > 15000) {
+                lastStepsPush = now;
+                web.evaluateJavascript("window.onDeclicSteps && window.onDeclicSteps()", null);
+            }
+        }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        }
+    };
+
+    private void startSteps() {
+        if (!Steps.enabled(this) || !Steps.permitted(this)) return;
+        Sensor s = Steps.sensor(this);
+        SensorManager sm = (SensorManager) getSystemService(SENSOR_SERVICE);
+        if (s != null && sm != null) sm.registerListener(stepListener, s, SensorManager.SENSOR_DELAY_NORMAL);
+        Steps.scheduleMidnight(this);
+    }
+
+    private void stopSteps() {
+        SensorManager sm = (SensorManager) getSystemService(SENSOR_SERVICE);
+        if (sm != null) sm.unregisterListener(stepListener);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        startSteps();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        stopSteps();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == 8 && results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
+            startSteps();
+            web.evaluateJavascript("window.onDeclicSteps && window.onDeclicSteps(); window.render && render()", null);
+        }
+    }
     private ValueCallback<Uri[]> fileCallback;
 
     @Override
@@ -205,6 +259,48 @@ public class MainActivity extends Activity {
         public void testNotification(final String text) {
             askNotificationPermission();
             Reminders.show(MainActivity.this, text);
+        }
+
+        @JavascriptInterface
+        public boolean stepsAvailable() {
+            return Steps.available(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public boolean stepsPermitted() {
+            return Steps.enabled(MainActivity.this) && Steps.permitted(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public String stepsJson() {
+            return Steps.json(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void requestSteps() {
+            Steps.prefs(MainActivity.this).edit().putBoolean("enabled", true).apply();
+            runOnUiThread(() -> {
+                if (Steps.permitted(MainActivity.this)) {
+                    startSteps();
+                    web.evaluateJavascript("window.onDeclicSteps && window.onDeclicSteps(); window.render && render()", null);
+                } else if (Build.VERSION.SDK_INT >= 29) {
+                    requestPermissions(new String[]{Manifest.permission.ACTIVITY_RECOGNITION}, 8);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void shareText(final String name, final String text) {
+            runOnUiThread(() -> {
+                Intent i = new Intent(Intent.ACTION_SEND);
+                i.setType("text/plain");
+                i.putExtra(Intent.EXTRA_SUBJECT, name);
+                i.putExtra(Intent.EXTRA_TEXT, text);
+                try {
+                    startActivity(Intent.createChooser(i, "Enregistrer ma sauvegarde Déclic"));
+                } catch (ActivityNotFoundException ignored) {
+                }
+            });
         }
 
         @JavascriptInterface
