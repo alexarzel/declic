@@ -384,7 +384,9 @@ function goalCard(full){
   let pace="";
   if(gi.reached)pace=`<p class="ok">Objectif atteint, bravo ! Fixe-toi un nouveau défi dans les réglages.</p>`;
   else if(gi.perWeek!=null){
-    if(pr.goal==="poids"){pace=gi.perWeek>1?`<p class="warn">Il faudrait perdre ${fmtN(gi.perWeek,"kg")} par semaine : c'est trop rapide pour ta santé. Repousse la date ou vise un peu moins.</p>`:`<p class="muted">Rythme à tenir : ${fmtN(gi.perWeek,"kg")} par semaine. C'est réaliste.</p>`}
+    if(pr.goal==="poids"){
+      const safe=Math.max(.5,Math.min(1,gi.cur*.008)),wk=Math.ceil(gi.left/safe),mo=Math.ceil(wk/4.3);
+      pace=gi.perWeek>safe*1.05?`<p class="warn">Il faudrait perdre ${fmtN(gi.perWeek,"kg")} par semaine. Pour toi, un rythme sain et durable, c'est environ ${fmtN(safe,"kg")} par semaine : compte plutôt ${wk} semaines (environ ${mo} mois). Change la durée dans Réglages.</p>`:`<p class="muted">Rythme à tenir : ${fmtN(gi.perWeek,"kg")} par semaine. C'est réaliste et bon pour ta santé.</p>`}
     else if(pr.goal==="douceur"){pace=`<p class="muted">Rythme à tenir : ${fmtN(gi.perWeek,"séances")} par semaine.</p>`}
     else pace=`<p class="muted">Encore ${fmtN(gi.left,G.unit)} à gagner${gi.wl?`, environ ${fmtN(gi.perWeek,G.unit)} par semaine`:""}.</p>`;
   }else if(gi.end)pace=`<p class="warn">La date est passée. Choisis une nouvelle échéance dans les réglages.</p>`;
