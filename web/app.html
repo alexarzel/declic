@@ -1602,6 +1602,22 @@ function pushWidget(){
     if(d!==lastWidget){lastWidget=d;window.ElanAndroid.updateWidget(d)}
   }catch(e){}
 }
+/* Garde ce qui est en cours de saisie quand l'écran se redessine (pas, mises à jour, synchro…). */
+const DIRTY=new Set();
+document.addEventListener("input",e=>{const f=e.target.closest&&e.target.closest("form[id]");if(f)DIRTY.add(f.id)},true);
+document.addEventListener("change",e=>{const f=e.target.closest&&e.target.closest("form[id]");if(f)DIRTY.add(f.id)},true);
+document.addEventListener("submit",e=>{if(e.target.id)setTimeout(()=>DIRTY.delete(e.target.id),0)},true);
+document.addEventListener("click",e=>{if(e.target.closest("[data-tab]"))DIRTY.clear()},true);
+const _renderKeep=render;
+render=function(){
+  const snap=[],act=document.activeElement,actId=act&&act.id,sel=act&&typeof act.selectionStart==="number"?act.selectionStart:null;
+  DIRTY.forEach(fid=>{const f=document.getElementById(fid);if(!f){DIRTY.delete(fid);return}
+    f.querySelectorAll("input,select,textarea").forEach(i=>{if(i.type==="radio"||i.type==="checkbox"){if(i.id)snap.push([i.id,"c",i.checked])}else if(i.id)snap.push([i.id,"v",i.value])})});
+  _renderKeep();
+  snap.forEach(([id,k,v])=>{const i=document.getElementById(id);if(!i)return;if(k==="c")i.checked=v;else i.value=v});
+  DIRTY.forEach(fid=>{const f=document.getElementById(fid);if(f)f.querySelectorAll(".goalbox").forEach(b=>{const g=f.querySelector('input[name="goal"]:checked');if(g)b.hidden=b.dataset.g!==g.value})});
+  if(actId&&act!==document.activeElement){const i=document.getElementById(actId);if(i&&i.closest("form")){try{i.focus({preventScroll:true});if(sel!=null&&i.setSelectionRange)i.setSelectionRange(sel,sel)}catch(e){}}}
+};
 const _render1=render;render=function(){_render1();pushWidget()};
 
 /* ---------- Profil corporel, besoins et compteur de calories ---------- */
